@@ -44,4 +44,14 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-google-services.json
+# Firebase config files (contain API keys) -- ignore later
+# google-services.json
+# GoogleService-Info.plist
+
+# Firebase CLI
+.firebase/
+firebase-debug.log
+
+# Environment files
+.env
+.env.*

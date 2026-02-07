@@ -1,0 +1,177 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // NOTE: getUserRole() uses document reads (counts toward 10-read limit per rule).
+    // For production, consider using Firebase custom claims on auth tokens instead.
+
+    // ═══════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ═══════════════════════════════════════
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+    
+    function isClubLeader() {
+      return isAuthenticated() && getUserRole() == 'club_leader';
+    }
+    
+    function isClubLeaderOf(clubId) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/clubs/$(clubId)).data.leaderId == request.auth.uid;
+    }
+    
+    // ═══════════════════════════════════════
+    // USERS COLLECTION
+    // ═══════════════════════════════════════
+    
+    match /users/{userId} {
+      // Anyone authenticated can read user profiles
+      allow read: if isAuthenticated();
+      
+      // Users can create their own profile during registration
+      allow create: if isAuthenticated() &&
+                       isOwner(userId) &&
+                       request.resource.data.role == 'student' &&
+                       request.resource.data.keys().hasAll(['email', 'name', 'role']);
+      
+      // Users can update their own profile (but not their role)
+      allow update: if isOwner(userId) &&
+                       request.resource.data.role == resource.data.role; // ✅ Cannot change role
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // ═══════════════════════════════════════
+    // CLUBS COLLECTION
+    // ═══════════════════════════════════════
+    
+    match /clubs/{clubId} {
+      // Anyone can read clubs (public information)
+      allow read: if true;
+      
+      // Only admins can create clubs
+      allow create: if isAdmin();
+      
+      // Club leaders can update their own clubs, admins can update any
+      allow update: if isClubLeaderOf(clubId) || isAdmin();
+      
+      // Only admins can delete clubs
+      allow delete: if isAdmin();
+    }
+    
+    // ═══════════════════════════════════════
+    // EVENTS COLLECTION
+    // ═══════════════════════════════════════
+    
+    match /events/{eventId} {
+      // Anyone can read events (public)
+      allow read: if true;
+      
+      // Club leaders can create events for their own clubs only
+      allow create: if (isClubLeaderOf(request.resource.data.clubId) || isAdmin()) &&
+                       request.resource.data.keys().hasAll(['clubId', 'title', 'date']);
+      
+      // Club leaders can update/delete their club's events
+      allow update, delete: if isClubLeaderOf(resource.data.clubId) || isAdmin();
+    }
+    
+    // ═══════════════════════════════════════
+    // REGISTRATIONS COLLECTION
+    // ═══════════════════════════════════════
+    
+    match /registrations/{registrationId} {
+      // Users can read their own registrations, club leaders can read registrations for their events
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      
+      // Users can register themselves for events
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.userId) &&
+                       request.resource.data.keys().hasAll(['userId', 'eventId']);
+      
+      // Users can update/cancel their own registrations
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+    
+    // ═══════════════════════════════════════
+    // MEMBERSHIPS COLLECTION
+    // ═══════════════════════════════════════
+    
+    match /memberships/{membershipId} {
+      // Users can read their own memberships
+      allow read: if isAuthenticated();
+      
+      // Users can request to join clubs
+      allow create: if isAuthenticated() &&
+                       isOwner(request.resource.data.userId) &&
+                       request.resource.data.status == 'pending' &&
+                       request.resource.data.keys().hasAll(['userId', 'clubId', 'status']);
+      
+      // Club leaders can approve/reject membership requests
+      allow update: if isClubLeaderOf(resource.data.clubId) || isAdmin();
+      
+      // Users can delete their own membership requests
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    
+    // ═══════════════════════════════════════
+    // FEEDBACK COLLECTION
+    // ═══════════════════════════════════════
+    
+    match /feedback/{feedbackId} {
+      // Users can read feedback (to see others' opinions)
+      allow read: if isAuthenticated();
+      
+      // Users can submit feedback
+      allow create: if isAuthenticated() && 
+                       isOwner(request.resource.data.userId);
+      
+      // Users can update their own feedback
+      allow update: if isOwner(resource.data.userId);
+      
+      // Users can delete their own feedback
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    
+    // ═══════════════════════════════════════
+    // CLUB LEADER REQUESTS COLLECTION
+    // ═══════════════════════════════════════
+    
+    match /club_leader_requests/{requestId} {
+      // Only admins can read requests
+      allow read: if isAdmin();
+      
+      // Users can create requests for themselves
+      allow create: if isAuthenticated() && 
+                       isOwner(request.resource.data.userId);
+      
+      // Only admins can update (approve/reject) requests
+      allow update: if isAdmin();
+      
+      // Only admins can delete requests
+      allow delete: if isAdmin();
+    }
+    
+    // ═══════════════════════════════════════
+    // TEST COLLECTION (for development only)
+    // ═══════════════════════════════════════
+    
+    match /test/{document=**} {
+      allow read, write: if true; // ⚠️ Remove in production
+    }
+  }
+}
