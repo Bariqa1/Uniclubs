@@ -1,16 +1,11 @@
-# uniclubs
+# UniClubs 
 
-A new Flutter project.
+**UniClubs** is an AI-powered mobile platform for university club and event management. The system uses hybrid recommendation algorithms, sentiment analysis, and attendance prediction to enhance student engagement with campus activities.
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+### Key Features
+- 🤖 **AI-Powered Recommendations:** Hybrid recommendation system using TensorFlow Recommenders
+- 📊 **Sentiment Analysis:** Gemini API for feedback analysis
+- 🤖 **AI Chatbot:** Interactive assistant for students
+- 📈 **Attendance Prediction:** Random Forest model for event planning
+- 📱 **Mobile-First:** Flutter cross-platform app (iOS/Android)
+- 🔥 **Firebase Backend:** Authentication, Firestore, Storage, Cloud Messaging
