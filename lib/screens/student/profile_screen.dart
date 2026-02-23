@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/firestore_service.dart';
+import '../../services/auth_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -8,58 +11,139 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final FirestoreService _firestoreService = FirestoreService();
+  final AuthService _authService = AuthService();
+  
+  bool _isLoading = true;
+  Map<String, dynamic>? _userProfile;
+  int _clubsJoined = 0;
+  int _eventsAttended = 0;
+  int _feedbackGiven = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      String? userId = _authService.currentUserId;
+      
+      if (userId == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // Get user profile
+      Map<String, dynamic>? profile = await _firestoreService.getUserProfile(userId);
+      
+      // Get user's clubs
+      List<Map<String, dynamic>> clubs = await _firestoreService.getUserClubs(userId);
+      
+      // Get user's registrations (for events attended count)
+      List<Map<String, dynamic>> registrations = 
+          await _firestoreService.getUserRegistrations(userId);
+      
+      // TODO: Get feedback count from Firestore when feedback collection is ready
+      // For now, using placeholder value
+      
+      setState(() {
+        _userProfile = profile;
+        _clubsJoined = clubs.length;
+        _eventsAttended = registrations.length;
+        _feedbackGiven = 8; // Placeholder
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading user data: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    // Show confirmation dialog
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Logout', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await _authService.logout();
+      
+      if (!mounted) return;
+      
+      // Navigate to login screen
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
+    if (_isLoading) {
+      return Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFFE8F4FD),
-              Color(0xFFF0F9FF),
-            ],
+            colors: [Color(0xFFE8F4FD), Color(0xFFF0F9FF)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF3674B5)),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFE8F4FD), Color(0xFFF0F9FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Header
                 _buildHeader(),
-
                 const SizedBox(height: 20),
-
-                // Profile Info
-                _buildProfileInfo(),
-
-                const SizedBox(height: 24),
-
-                // Stats Cards
+                _buildProfileCard(),
+                const SizedBox(height: 20),
                 _buildStatsCards(),
-
-                const SizedBox(height: 24),
-
-                // Interest Tags
-                _buildInterestTags(),
-
-                const SizedBox(height: 24),
-
-                // Quick Actions
+                const SizedBox(height: 20),
+                _buildInterestsSection(),
+                const SizedBox(height: 20),
                 _buildQuickActions(),
-
-                const SizedBox(height: 24),
-
-                // Settings Section
+                const SizedBox(height: 20),
                 _buildSettingsSection(),
-
-                const SizedBox(height: 24),
-
-                // Logout Button
+                const SizedBox(height: 20),
                 _buildLogoutButton(),
-
-                const SizedBox(height: 32),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -69,37 +153,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text(
-            'Profile',
-            style: TextStyle(
-              fontFamily: 'SF Arabic',
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF3674B5),
-            ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        const Text(
+          'Profile',
+          style: TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF3674B5),
           ),
-          IconButton(
-            onPressed: () {
-              // TODO: Navigate to edit profile
-            },
-            icon: const Icon(
-              Icons.edit_outlined,
-              color: Color(0xFF3674B5),
-            ),
-          ),
-        ],
-      ),
+        ),
+        IconButton(
+          onPressed: () {
+            // TODO: Navigate to edit profile screen
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Edit profile coming soon!'),
+                duration: Duration(seconds: 1),
+              ),
+            );
+          },
+          icon: const Icon(Icons.edit, color: Color(0xFF3674B5)),
+        ),
+      ],
     );
   }
 
-  Widget _buildProfileInfo() {
+  Widget _buildProfileCard() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -121,19 +203,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 width: 100,
                 height: 100,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
                   gradient: const LinearGradient(
                     colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF3674B5).withOpacity(0.3),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
+                  shape: BoxShape.circle,
                 ),
                 child: const Center(
                   child: Text(
@@ -146,19 +219,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 bottom: 0,
                 right: 0,
                 child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF3674B5),
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF3674B5),
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white,
-                      width: 3,
-                    ),
                   ),
                   child: const Icon(
                     Icons.camera_alt,
+                    size: 16,
                     color: Colors.white,
-                    size: 18,
                   ),
                 ),
               ),
@@ -167,22 +236,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
 
           // User Name
-          const Text(
-            'Rudi Aleidan',
-            style: TextStyle(
-              fontFamily: 'SF Arabic',
+          Text(
+            _userProfile?['name'] ?? 'User Name',
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Color(0xFF3674B5),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
 
           // Email
           Text(
-            'rudi@qu.edu.sa',
+            _userProfile?['email'] ?? 'email@qu.edu.sa',
             style: TextStyle(
-              fontFamily: 'SF Arabic',
               fontSize: 14,
               color: const Color(0xFF578FCA).withOpacity(0.7),
             ),
@@ -191,29 +258,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           // Role Badge
           Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFFA1E3F9).withOpacity(0.2),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Row(
+            child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.school,
-                  size: 16,
-                  color: Color(0xFF3674B5),
-                ),
-                SizedBox(width: 6),
+                const Icon(Icons.school, size: 18, color: Color(0xFF3674B5)),
+                const SizedBox(width: 8),
                 Text(
-                  'Student',
-                  style: TextStyle(
-                    fontFamily: 'SF Arabic',
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                  (_userProfile?['role'] ?? 'student').toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                     color: Color(0xFF3674B5),
                   ),
                 ),
@@ -226,45 +285,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildStatsCards() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              icon: Icons.groups_rounded,
-              value: '5',
-              label: 'Clubs Joined',
-              color: const Color(0xFF3674B5),
-            ),
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.groups,
+            label: 'Clubs Joined',
+            value: _clubsJoined.toString(),
+            color: const Color(0xFF3674B5),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              icon: Icons.event_available,
-              value: '12',
-              label: 'Events Attended',
-              color: const Color(0xFF578FCA),
-            ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.event,
+            label: 'Events Attended',
+            value: _eventsAttended.toString(),
+            color: const Color(0xFF578FCA),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildStatCard(
-              icon: Icons.star,
-              value: '8',
-              label: 'Feedback Given',
-              color: const Color(0xFFA1E3F9),
-            ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.star,
+            label: 'Feedback Given',
+            value: _feedbackGiven.toString(),
+            color: const Color(0xFFA1E3F9),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildStatCard({
     required IconData icon,
-    required String value,
     required String label,
+    required String value,
     required Color color,
   }) {
     return Container(
@@ -275,30 +331,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         boxShadow: [
           BoxShadow(
             color: color.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24,
-            ),
+            child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 12),
           Text(
             value,
             style: TextStyle(
-              fontFamily: 'SF Arabic',
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: color,
@@ -309,7 +360,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontFamily: 'SF Arabic',
               fontSize: 11,
               color: const Color(0xFF578FCA).withOpacity(0.7),
             ),
@@ -319,16 +369,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildInterestTags() {
+  Widget _buildInterestsSection() {
+    List<String> interests = List<String>.from(_userProfile?['interests'] ?? ['AI', 'Mobile Dev', 'Sports', 'Design']);
+    
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.08),
+            color: const Color(0xFF578FCA).withOpacity(0.1),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -341,26 +392,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'My Interests',
+                'Interests',
                 style: TextStyle(
-                  fontFamily: 'SF Arabic',
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF3674B5),
                 ),
               ),
-              TextButton(
+              TextButton.icon(
                 onPressed: () {
-                  // TODO: Navigate to edit interests
+                  // TODO: Navigate to edit interests screen
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Edit interests coming soon!'),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
                 },
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(
-                    fontFamily: 'SF Arabic',
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF578FCA),
-                  ),
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('Edit'),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF578FCA),
                 ),
               ),
             ],
@@ -369,51 +421,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: [
-              _buildInterestChip('AI', '🤖'),
-              _buildInterestChip('Mobile Dev', '📱'),
-              _buildInterestChip('Sports', '⚽'),
-              _buildInterestChip('Design', '🎨'),
-              _buildInterestChip('Photography', '📷'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInterestChip(String label, String emoji) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF3674B5).withOpacity(0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            emoji,
-            style: const TextStyle(fontSize: 14),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontFamily: 'SF Arabic',
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+            children: interests.map((interest) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _getInterestEmoji(interest),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      interest,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
           ),
         ],
       ),
@@ -422,14 +458,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildQuickActions() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.08),
+            color: const Color(0xFF578FCA).withOpacity(0.1),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -441,7 +476,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Text(
             'Quick Actions',
             style: TextStyle(
-              fontFamily: 'SF Arabic',
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Color(0xFF3674B5),
@@ -451,25 +485,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildActionTile(
             icon: Icons.event_note,
             title: 'My Registrations',
-            subtitle: 'View registered events',
             onTap: () {
-              // TODO: Navigate to registrations
+              // TODO: Navigate to my registrations screen
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('My Registrations coming soon!'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
             },
           ),
           _buildActionTile(
             icon: Icons.groups,
             title: 'My Clubs',
-            subtitle: 'View joined clubs',
             onTap: () {
-              // TODO: Navigate to my clubs
+              // TODO: Navigate to my clubs screen
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('My Clubs coming soon!'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
             },
           ),
           _buildActionTile(
             icon: Icons.feedback,
             title: 'My Feedback',
-            subtitle: 'View submitted feedback',
             onTap: () {
-              // TODO: Navigate to feedback history
+              // TODO: Navigate to my feedback screen
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('My Feedback coming soon!'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
             },
           ),
         ],
@@ -479,14 +528,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildSettingsSection() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.08),
+            color: const Color(0xFF578FCA).withOpacity(0.1),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -498,7 +546,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Text(
             'Settings',
             style: TextStyle(
-              fontFamily: 'SF Arabic',
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Color(0xFF3674B5),
@@ -508,7 +555,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildActionTile(
             icon: Icons.notifications_outlined,
             title: 'Notifications',
-            subtitle: 'Manage notification preferences',
             onTap: () {
               // TODO: Navigate to notifications settings
             },
@@ -516,7 +562,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildActionTile(
             icon: Icons.lock_outline,
             title: 'Privacy',
-            subtitle: 'Control your privacy settings',
             onTap: () {
               // TODO: Navigate to privacy settings
             },
@@ -524,17 +569,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildActionTile(
             icon: Icons.key_outlined,
             title: 'Change Password',
-            subtitle: 'Update your password',
             onTap: () {
-              // TODO: Navigate to change password
-            },
-          ),
-          _buildActionTile(
-            icon: Icons.help_outline,
-            title: 'Help & Support',
-            subtitle: 'Get help and contact support',
-            onTap: () {
-              // TODO: Navigate to help
+              // TODO: Navigate to change password screen
             },
           ),
         ],
@@ -545,14 +581,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildActionTile({
     required IconData icon,
     required String title,
-    required String subtitle,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
         child: Row(
           children: [
             Container(
@@ -561,40 +596,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: const Color(0xFFA1E3F9).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                icon,
-                color: const Color(0xFF3674B5),
-                size: 22,
-              ),
+              child: Icon(icon, color: const Color(0xFF3674B5), size: 24),
             ),
             const SizedBox(width: 16),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontFamily: 'SF Arabic',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF3674B5),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontFamily: 'SF Arabic',
-                      fontSize: 12,
-                      color: const Color(0xFF578FCA).withOpacity(0.7),
-                    ),
-                  ),
-                ],
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF3674B5),
+                ),
               ),
             ),
             Icon(
-              Icons.arrow_forward_ios,
+              Icons.arrow_forward_ios_rounded,
               size: 16,
               color: const Color(0xFF578FCA).withOpacity(0.5),
             ),
@@ -605,32 +621,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildLogoutButton() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+    return SizedBox(
+      width: double.infinity,
+      height: 56,
       child: ElevatedButton(
-        onPressed: () {
-          _showLogoutDialog();
-        },
+        onPressed: _handleLogout,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red.shade400,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          backgroundColor: Colors.red,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          elevation: 3,
         ),
-        child: Row(
+        child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.logout, size: 20),
-            SizedBox(width: 8),
+          children: [
+            Icon(Icons.logout, color: Colors.white),
+            SizedBox(width: 12),
             Text(
               'Logout',
               style: TextStyle(
-                fontFamily: 'SF Arabic',
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ],
@@ -639,64 +651,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Logout',
-          style: TextStyle(
-            fontFamily: 'SF Arabic',
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF3674B5),
-          ),
-        ),
-        content: const Text(
-          'Are you sure you want to logout?',
-          style: TextStyle(
-            fontFamily: 'SF Arabic',
-            color: Color(0xFF578FCA),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                fontFamily: 'SF Arabic',
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF578FCA),
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement logout
-              Navigator.pop(context);
-              // Navigate to login
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade400,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'Logout',
-              style: TextStyle(
-                fontFamily: 'SF Arabic',
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _getInterestEmoji(String interest) {
+    final emojiMap = {
+      'AI': '🤖',
+      'Mobile Dev': '📱',
+      'Sports': '⚽',
+      'Design': '🎨',
+      'Music': '🎵',
+      'Photography': '📷',
+      'Coding': '💻',
+      'Art': '🎨',
+    };
+    return emojiMap[interest] ?? '⭐';
   }
 }
