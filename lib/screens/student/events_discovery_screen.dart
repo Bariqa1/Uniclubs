@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../services/firestore_service.dart';
+import '../../models/event_model.dart';
 
 class EventsDiscoveryScreen extends StatefulWidget {
   const EventsDiscoveryScreen({super.key});
@@ -7,15 +9,26 @@ class EventsDiscoveryScreen extends StatefulWidget {
   State<EventsDiscoveryScreen> createState() => _EventsDiscoveryScreenState();
 }
 
-class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with SingleTickerProviderStateMixin {
+class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> 
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
+  final FirestoreService _firestoreService = FirestoreService();
+  
   bool _isSearching = false;
+  bool _isLoading = true;
+  String _selectedCategory = 'All';
+  
+  List<Event> _upcomingEvents = [];
+  List<Event> _pastEvents = [];
+  List<Event> _displayedEvents = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _loadEvents();
   }
 
   @override
@@ -23,6 +36,73 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
     _tabController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) {
+      _applyFilters();
+    }
+  }
+
+  Future<void> _loadEvents() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Get upcoming and past events from Firestore
+      List<Map<String, dynamic>> upcomingData = 
+          await _firestoreService.getUpcomingEvents(limit: 50);
+      List<Map<String, dynamic>> pastData = 
+          await _firestoreService.getPastEvents(limit: 50);
+
+      setState(() {
+        _upcomingEvents = upcomingData.map((data) => Event.fromFirestore(data)).toList();
+        _pastEvents = pastData.map((data) => Event.fromFirestore(data)).toList();
+        _applyFilters();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading events: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _applyFilters() {
+    List<Event> sourceEvents = _tabController.index == 0 ? _upcomingEvents : _pastEvents;
+    
+    setState(() {
+      _displayedEvents = sourceEvents.where((event) {
+        // Category filter
+        bool matchesCategory = _selectedCategory == 'All' || 
+                               event.category == _selectedCategory.toLowerCase();
+        
+        // Search filter
+        bool matchesSearch = _searchController.text.isEmpty ||
+                            event.title.toLowerCase().contains(_searchController.text.toLowerCase()) ||
+                            event.category.toLowerCase().contains(_searchController.text.toLowerCase());
+        
+        return matchesCategory && matchesSearch;
+      }).toList();
+    });
+  }
+
+  Future<void> _handleSearch(String query) async {
+    if (query.isEmpty) {
+      _applyFilters();
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      List<Map<String, dynamic>> results = await _firestoreService.searchEvents(query);
+      setState(() {
+        _displayedEvents = results.map((data) => Event.fromFirestore(data)).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error searching: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   void _showFilterSheet() {
@@ -40,10 +120,7 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              Color(0xFFE8F4FD),
-              Color(0xFFF0F9FF),
-            ],
+            colors: [Color(0xFFE8F4FD), Color(0xFFF0F9FF)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -51,21 +128,10 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
         child: SafeArea(
           child: Column(
             children: [
-              // Custom App Bar with Search
               _buildAppBar(),
-
-              // Tabs
               _buildTabs(),
-
-              // Event List
               Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildEventList(isUpcoming: true),
-                    _buildEventList(isUpcoming: false),
-                  ],
-                ),
+                child: _buildEventList(),
               ),
             ],
           ),
@@ -77,83 +143,59 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.all(16),
-      child: Column(
+      child: Row(
         children: [
-          // Title and Filter Button
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (!_isSearching)
-                const Text(
-                  'Events',
-                  style: TextStyle(
-                    fontFamily: 'SF Arabic',
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF3674B5),
-                  ),
-                ),
-              if (_isSearching)
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    style: const TextStyle(
-                      fontFamily: 'SF Arabic',
-                      fontSize: 16,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Search events...',
-                      hintStyle: TextStyle(
-                        fontFamily: 'SF Arabic',
-                        color: const Color(0xFF578FCA).withOpacity(0.5),
-                      ),
-                      border: InputBorder.none,
-                      prefixIcon: const Icon(
-                        Icons.search,
-                        color: Color(0xFF578FCA),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      // TODO: Implement real-time search
-                      setState(() {});
-                    },
-                  ),
-                ),
-              Row(
-                children: [
-                  // Search Button
-                  IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _isSearching = !_isSearching;
-                        if (!_isSearching) {
-                          _searchController.clear();
-                        }
-                      });
-                    },
-                    icon: Icon(
-                      _isSearching ? Icons.close : Icons.search,
-                      color: const Color(0xFF3674B5),
-                    ),
-                  ),
-                  // Filter Button
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF3674B5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      onPressed: _showFilterSheet,
-                      icon: const Icon(
-                        Icons.tune,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
+          if (!_isSearching)
+            const Text(
+              'Events',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3674B5),
               ),
-            ],
+            ),
+          if (_isSearching)
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: 'Search events...',
+                  hintStyle: TextStyle(
+                    color: const Color(0xFF578FCA).withOpacity(0.5),
+                  ),
+                  border: InputBorder.none,
+                  prefixIcon: const Icon(Icons.search, color: Color(0xFF578FCA)),
+                ),
+                onChanged: (value) => _handleSearch(value),
+              ),
+            ),
+          const Spacer(),
+          IconButton(
+            onPressed: () {
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchController.clear();
+                  _applyFilters();
+                }
+              });
+            },
+            icon: Icon(
+              _isSearching ? Icons.close : Icons.search,
+              color: const Color(0xFF3674B5),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF3674B5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              onPressed: _showFilterSheet,
+              icon: const Icon(Icons.tune, color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -184,16 +226,7 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
         ),
         labelColor: Colors.white,
         unselectedLabelColor: const Color(0xFF578FCA),
-        labelStyle: const TextStyle(
-          fontFamily: 'SF Arabic',
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontFamily: 'SF Arabic',
-          fontSize: 16,
-          fontWeight: FontWeight.normal,
-        ),
+        labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         tabs: const [
           Tab(
             child: Row(
@@ -220,31 +253,30 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
     );
   }
 
-  Widget _buildEventList({required bool isUpcoming}) {
-    // Sample event data
-    final events = _getSampleEvents(isUpcoming);
+  Widget _buildEventList() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF3674B5)),
+      );
+    }
 
-    if (events.isEmpty) {
-      return _buildEmptyState(isUpcoming);
+    if (_displayedEvents.isEmpty) {
+      return _buildEmptyState();
     }
 
     return RefreshIndicator(
-      onRefresh: () async {
-        // TODO: Implement pull to refresh
-        await Future.delayed(const Duration(seconds: 1));
-      },
+      onRefresh: _loadEvents,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: events.length,
+        itemCount: _displayedEvents.length,
         itemBuilder: (context, index) {
-          final event = events[index];
-          return _buildEventCard(event);
+          return _buildEventCard(_displayedEvents[index]);
         },
       ),
     );
   }
 
-  Widget _buildEventCard(Map<String, dynamic> event) {
+  Widget _buildEventCard(Event event) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -261,14 +293,12 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Event Header with Gradient
+          // Event Header
           Container(
             height: 140,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: event['gradient'] as List<Color>,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                colors: _getGradientColors(event.category),
               ),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
@@ -277,30 +307,24 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
             ),
             child: Stack(
               children: [
-                // Event Icon/Emoji
                 Center(
                   child: Text(
-                    event['emoji'] as String,
+                    _getCategoryEmoji(event.category),
                     style: const TextStyle(fontSize: 50),
                   ),
                 ),
-                // Registration Status Badge
                 Positioned(
                   top: 12,
                   right: 12,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(event['status']),
+                      color: _getStatusColor(event),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      event['status'] as String,
+                      _getStatusText(event),
                       style: const TextStyle(
-                        fontFamily: 'SF Arabic',
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -318,24 +342,17 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Event Title
                 Text(
-                  event['title'] as String,
+                  event.title,
                   style: const TextStyle(
-                    fontFamily: 'SF Arabic',
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF3674B5),
                   ),
                 ),
                 const SizedBox(height: 8),
-
-                // Club Name Badge
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(0xFFA1E3F9).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(8),
@@ -343,16 +360,11 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        Icons.groups,
-                        size: 14,
-                        color: Color(0xFF3674B5),
-                      ),
+                      const Icon(Icons.category, size: 14, color: Color(0xFF3674B5)),
                       const SizedBox(width: 4),
                       Text(
-                        event['club'] as String,
+                        event.category.toUpperCase(),
                         style: const TextStyle(
-                          fontFamily: 'SF Arabic',
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF3674B5),
@@ -362,20 +374,13 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                   ),
                 ),
                 const SizedBox(height: 12),
-
-                // Date & Time
                 Row(
                   children: [
-                    const Icon(
-                      Icons.calendar_today,
-                      size: 16,
-                      color: Color(0xFF578FCA),
-                    ),
+                    const Icon(Icons.calendar_today, size: 16, color: Color(0xFF578FCA)),
                     const SizedBox(width: 6),
                     Text(
-                      '${event['date']} • ${event['time']}',
+                      '${event.formattedDate} • ${event.formattedTime}',
                       style: TextStyle(
-                        fontFamily: 'SF Arabic',
                         fontSize: 13,
                         color: const Color(0xFF578FCA).withOpacity(0.8),
                       ),
@@ -383,20 +388,13 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                   ],
                 ),
                 const SizedBox(height: 8),
-
-                // Location
                 Row(
                   children: [
-                    const Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Color(0xFF578FCA),
-                    ),
+                    const Icon(Icons.location_on, size: 16, color: Color(0xFF578FCA)),
                     const SizedBox(width: 6),
                     Text(
-                      event['location'] as String,
+                      event.location,
                       style: TextStyle(
-                        fontFamily: 'SF Arabic',
                         fontSize: 13,
                         color: const Color(0xFF578FCA).withOpacity(0.8),
                       ),
@@ -404,50 +402,32 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // Attendee Count
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFA1E3F9).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.people, size: 16, color: Color(0xFF3674B5)),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${event.currentRegistrations}/${event.capacity}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF3674B5),
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFA1E3F9).withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(10),
+                      const SizedBox(width: 4),
+                      const Text(
+                        'attending',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF3674B5)),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.people,
-                            size: 16,
-                            color: Color(0xFF3674B5),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '${event['attendees']}/${event['capacity']}',
-                            style: const TextStyle(
-                              fontFamily: 'SF Arabic',
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF3674B5),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'attending',
-                            style: TextStyle(
-                              fontFamily: 'SF Arabic',
-                              fontSize: 12,
-                              color: Color(0xFF3674B5),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -457,7 +437,8 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
     );
   }
 
-  Widget _buildEmptyState(bool isUpcoming) {
+  Widget _buildEmptyState() {
+    bool isUpcoming = _tabController.index == 0;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -479,7 +460,6 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
           Text(
             isUpcoming ? 'No Upcoming Events' : 'No Past Events',
             style: const TextStyle(
-              fontFamily: 'SF Arabic',
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: Color(0xFF3674B5),
@@ -491,7 +471,6 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                 ? 'Check back soon for new events!'
                 : 'Your event history will appear here',
             style: TextStyle(
-              fontFamily: 'SF Arabic',
               fontSize: 14,
               color: const Color(0xFF578FCA).withOpacity(0.7),
             ),
@@ -503,7 +482,7 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
 
   Widget _buildFilterSheet() {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: MediaQuery.of(context).size.height * 0.5,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -513,7 +492,6 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
       ),
       child: Column(
         children: [
-          // Handle
           Container(
             margin: const EdgeInsets.only(top: 12),
             width: 40,
@@ -524,38 +502,27 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
             ),
           ),
           const SizedBox(height: 20),
-
-          // Title
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Filter Events',
-                  style: TextStyle(
-                    fontFamily: 'SF Arabic',
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF3674B5),
-                  ),
-                ),
-              ],
+            child: Text(
+              'Filter Events',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3674B5),
+              ),
             ),
           ),
           const SizedBox(height: 24),
-
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Category Filter
                   const Text(
                     'Category',
                     style: TextStyle(
-                      fontFamily: 'SF Arabic',
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF3674B5),
@@ -566,103 +533,18 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _buildFilterChip('All', true),
-                      _buildFilterChip('Tech', false),
-                      _buildFilterChip('Sports', false),
-                      _buildFilterChip('Arts', false),
-                      _buildFilterChip('Academic', false),
-                      _buildFilterChip('Social', false),
+                      _buildFilterChip('All'),
+                      _buildFilterChip('tech'),
+                      _buildFilterChip('sports'),
+                      _buildFilterChip('arts'),
+                      _buildFilterChip('academic'),
+                      _buildFilterChip('social'),
                     ],
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Date Range Filter
-                  const Text(
-                    'Date Range',
-                    style: TextStyle(
-                      fontFamily: 'SF Arabic',
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF3674B5),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFA1E3F9).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF578FCA).withOpacity(0.2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.date_range,
-                          color: Color(0xFF578FCA),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Select date range',
-                          style: TextStyle(
-                            fontFamily: 'SF Arabic',
-                            fontSize: 14,
-                            color: Color(0xFF578FCA),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Club Filter
-                  const Text(
-                    'Club',
-                    style: TextStyle(
-                      fontFamily: 'SF Arabic',
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF3674B5),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFA1E3F9).withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFF578FCA).withOpacity(0.2),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'All Clubs',
-                          style: TextStyle(
-                            fontFamily: 'SF Arabic',
-                            fontSize: 14,
-                            color: Color(0xFF578FCA),
-                          ),
-                        ),
-                        Icon(
-                          Icons.arrow_drop_down,
-                          color: Color(0xFF578FCA),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),
             ),
           ),
-
-          // Action Buttons
           Padding(
             padding: const EdgeInsets.all(24),
             child: Row(
@@ -670,6 +552,8 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
+                      setState(() => _selectedCategory = 'All');
+                      _applyFilters();
                       Navigator.pop(context);
                     },
                     style: OutlinedButton.styleFrom(
@@ -680,9 +564,8 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                       ),
                     ),
                     child: const Text(
-                      'Clear Filters',
+                      'Clear',
                       style: TextStyle(
-                        fontFamily: 'SF Arabic',
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF578FCA),
@@ -694,6 +577,7 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
+                      _applyFilters();
                       Navigator.pop(context);
                     },
                     style: ElevatedButton.styleFrom(
@@ -704,9 +588,8 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
                       ),
                     ),
                     child: const Text(
-                      'Apply Filters',
+                      'Apply',
                       style: TextStyle(
-                        fontFamily: 'SF Arabic',
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -722,18 +605,17 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected) {
+  Widget _buildFilterChip(String label) {
+    bool isSelected = _selectedCategory == label;
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
       onSelected: (selected) {
-        // TODO: Implement filter logic
-        setState(() {});
+        setState(() => _selectedCategory = label);
       },
       selectedColor: const Color(0xFF3674B5),
       backgroundColor: Colors.white,
       labelStyle: TextStyle(
-        fontFamily: 'SF Arabic',
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: isSelected ? Colors.white : const Color(0xFF578FCA),
@@ -749,86 +631,39 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen> with Sing
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Open':
-        return const Color(0xFF578FCA);
-      case 'Registered':
-        return Colors.green;
-      case 'Full':
-        return Colors.red;
-      default:
-        return const Color(0xFF578FCA);
+  String _getCategoryEmoji(String category) {
+    switch (category) {
+      case 'tech': return '💻';
+      case 'sports': return '⚽';
+      case 'arts': return '🎨';
+      case 'academic': return '📚';
+      case 'social': return '🎉';
+      default: return '📌';
     }
   }
 
-  List<Map<String, dynamic>> _getSampleEvents(bool isUpcoming) {
-    if (isUpcoming) {
-      return [
-        {
-          'title': 'AI Workshop 2024',
-          'club': 'Tech Club',
-          'date': 'Feb 20, 2026',
-          'time': '10:00 AM',
-          'location': 'Lab 101',
-          'attendees': 45,
-          'capacity': 50,
-          'status': 'Open',
-          'emoji': '🤖',
-          'gradient': [const Color(0xFF3674B5), const Color(0xFF578FCA)],
-        },
-        {
-          'title': 'Mobile Dev Bootcamp',
-          'club': 'Code Club',
-          'date': 'Feb 22, 2026',
-          'time': '2:00 PM',
-          'location': 'Room 205',
-          'attendees': 30,
-          'capacity': 40,
-          'status': 'Registered',
-          'emoji': '📱',
-          'gradient': [const Color(0xFF578FCA), const Color(0xFFA1E3F9)],
-        },
-        {
-          'title': 'Data Science Talk',
-          'club': 'AI Society',
-          'date': 'Feb 25, 2026',
-          'time': '4:00 PM',
-          'location': 'Auditorium',
-          'attendees': 100,
-          'capacity': 100,
-          'status': 'Full',
-          'emoji': '📊',
-          'gradient': [const Color(0xFFA1E3F9), const Color(0xFF578FCA)],
-        },
-        {
-          'title': 'Hackathon 2024',
-          'club': 'Tech Club',
-          'date': 'Mar 1, 2026',
-          'time': '9:00 AM',
-          'location': 'CS Building',
-          'attendees': 60,
-          'capacity': 80,
-          'status': 'Open',
-          'emoji': '💻',
-          'gradient': [const Color(0xFF3674B5), const Color(0xFFA1E3F9)],
-        },
-      ];
-    } else {
-      return [
-        {
-          'title': 'Web Dev Workshop',
-          'club': 'Code Club',
-          'date': 'Jan 15, 2026',
-          'time': '3:00 PM',
-          'location': 'Lab 102',
-          'attendees': 35,
-          'capacity': 40,
-          'status': 'Registered',
-          'emoji': '🌐',
-          'gradient': [const Color(0xFF578FCA), const Color(0xFFA1E3F9)],
-        },
-      ];
+  List<Color> _getGradientColors(String category) {
+    switch (category) {
+      case 'tech':
+        return [const Color(0xFF3674B5), const Color(0xFF578FCA)];
+      case 'sports':
+        return [const Color(0xFF578FCA), const Color(0xFFA1E3F9)];
+      case 'arts':
+        return [const Color(0xFFA1E3F9), const Color(0xFF578FCA)];
+      default:
+        return [const Color(0xFF3674B5), const Color(0xFFA1E3F9)];
     }
+  }
+
+  Color _getStatusColor(Event event) {
+    if (event.isFull) return Colors.red;
+    if (event.isRegistrationOpen) return const Color(0xFF578FCA);
+    return Colors.grey;
+  }
+
+  String _getStatusText(Event event) {
+    if (event.isFull) return 'Full';
+    if (event.isRegistrationOpen) return 'Open';
+    return 'Closed';
   }
 }
