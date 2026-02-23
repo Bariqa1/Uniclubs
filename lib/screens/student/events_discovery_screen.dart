@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/firestore_service.dart';
 import '../../models/event_model.dart';
+import 'event_detail_screen.dart';
 
 class EventsDiscoveryScreen extends StatefulWidget {
   const EventsDiscoveryScreen({super.key});
@@ -277,7 +278,12 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen>
   }
 
   Widget _buildEventCard(Event event) {
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -433,6 +439,7 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen>
             ),
           ),
         ],
+      ),
       ),
     );
   }

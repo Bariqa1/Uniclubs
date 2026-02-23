@@ -5,6 +5,7 @@ import '../../models/event_model.dart';
 import 'events_discovery_screen.dart';
 import 'clubs_discovery_screen.dart';
 import 'profile_screen.dart';
+import 'event_detail_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -152,9 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
       List<Event> events = eventsData.map((data) => Event.fromFirestore(data)).toList();
 
       setState(() {
-        // For now, use same events for recommendations
-        // TODO: Replace with AI backend call later
-        _recommendedEvents = events.take(5).toList();
+        _recommendedEvents = []; // AI recommendations not yet implemented
         _upcomingEvents = events;
         _isLoading = false;
       });
@@ -316,7 +315,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecommendedEventCard(Event event) {
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+      ),
+      child: Container(
       width: 300,
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
@@ -443,6 +447,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -573,7 +578,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildUpcomingEventCard(Event event) {
-    return Container(
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -655,6 +665,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

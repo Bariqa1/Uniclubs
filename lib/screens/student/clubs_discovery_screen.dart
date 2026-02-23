@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/firestore_service.dart';
+import '../../models/club_model.dart';
+import 'club_detail_screen.dart';
 
 class ClubsDiscoveryScreen extends StatefulWidget {
   const ClubsDiscoveryScreen({super.key});
@@ -273,15 +275,12 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
         ],
       ),
       child: InkWell(
-        onTap: () {
-          // TODO: Navigate to club detail screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Opening ${club['name']}...'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-        },
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ClubDetailScreen(club: Club.fromMap(club)),
+          ),
+        ),
         borderRadius: BorderRadius.circular(20),
         child: Padding(
           padding: const EdgeInsets.all(16),
