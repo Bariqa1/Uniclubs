@@ -48,6 +48,9 @@ app.*.map.json
 # google-services.json
 # GoogleService-Info.plist
 
+# must ignore
+serviceAccountKey.json
+
 # Firebase CLI
 .firebase/
 firebase-debug.log
@@ -57,6 +60,4 @@ firebase-debug.log
 .env.*
 
 Phase1_Final_Copy.pdf
-UI/
 CLAUDE.md
-project_structure.md
