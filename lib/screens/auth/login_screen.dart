@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -58,10 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (userRole == 'student') {
         Navigator.pushReplacementNamed(context, '/student-dashboard');
       } else if (userRole == 'club_leader') {
-        // TODO: Navigate to club leader dashboard
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Club leader dashboard coming soon!')),
-        );
+        Navigator.pushReplacementNamed(context, '/leader-dashboard');
       } else if (userRole == 'admin') {
         // TODO: Navigate to admin dashboard
         ScaffoldMessenger.of(context).showSnackBar(
@@ -354,15 +352,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () {
-                                // TODO: Navigate to forgot password screen
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Forgot password feature coming soon!'),
-                                    duration: Duration(seconds: 1),
-                                  ),
-                                );
-                              },
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ForgotPasswordScreen(),
+                                ),
+                              ),
                               child: const Text(
                                 'Forgot Password?',
                                 style: TextStyle(

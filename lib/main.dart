@@ -5,7 +5,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/register_screen.dart';
 import 'screens/student/student_dashboard.dart';
+import 'screens/leader/leader_main_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,7 +35,9 @@ class UniClubsApp extends StatelessWidget {
       home: const AuthGate(),
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/register': (context) => const RegistrationScreen(),
         '/student-dashboard': (context) => const StudentDashboard(),
+        '/leader-dashboard': (context) => const ClubLeaderMainShell(),
       },
     );
   }
@@ -58,6 +62,7 @@ class AuthGate extends StatelessWidget {
 
       final role = doc.data()?['role'] ?? 'student';
       if (role == 'student') return const StudentDashboard();
+      if (role == 'club_leader') return const ClubLeaderMainShell();
     } catch (_) {}
 
     return const WelcomeScreen();
