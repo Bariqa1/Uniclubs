@@ -17,14 +17,14 @@ class ClubLeaderDashboard extends StatelessWidget {
     try {
       // Use Future.wait to execute multiple READ queries at once
       final results = await Future.wait([
-        // Query 1: Read total members count
-        FirebaseFirestore.instance.collection('members').where('clubId', isEqualTo: clubId).count().get(),
+        // Query 1: Read total members count (approved memberships)
+        FirebaseFirestore.instance.collection('memberships').where('clubId', isEqualTo: clubId).where('status', isEqualTo: 'approved').count().get(),
         // Query 2: Read active events count
         FirebaseFirestore.instance.collection('events').where('clubId', isEqualTo: clubId).count().get(),
         // Query 3: Read pending join requests count
-        FirebaseFirestore.instance.collection('join_requests').where('clubId', isEqualTo: clubId).where('status', isEqualTo: 'pending').count().get(),
-        // Query 4: Read only the most recent event document
-        FirebaseFirestore.instance.collection('events').where('clubId', isEqualTo: clubId).limit(1).get(),
+        FirebaseFirestore.instance.collection('memberships').where('clubId', isEqualTo: clubId).where('status', isEqualTo: 'pending').count().get(),
+        // Query 4: Read the next upcoming event (date in the future, ordered soonest first)
+        FirebaseFirestore.instance.collection('events').where('clubId', isEqualTo: clubId).where('date', isGreaterThan: Timestamp.now()).orderBy('date').limit(1).get(),
         // Query 5: Read current user's profile for the name
         if (userId != null) FirebaseFirestore.instance.collection('users').doc(userId).get() else Future.value(null),
       ]);

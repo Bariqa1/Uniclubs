@@ -226,6 +226,7 @@ class ClubProfilePage extends StatelessWidget {
                   .toList();
               await FirebaseFirestore.instance.collection('posts').add({
                 'clubId': clubDoc.id,
+                'clubName': clubDoc['name'] ?? '',
                 'title': 'New Update',
                 'content': textController.text,
                 'media': mediaArray,

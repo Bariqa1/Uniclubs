@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'club_leader_dashboard.dart';
 import 'club_profile_page.dart';
 import 'event_page.dart';
+import 'members_screen.dart';
 
 class ClubLeaderMainShell extends StatefulWidget {
   const ClubLeaderMainShell({super.key});
@@ -41,7 +42,8 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
         final List<Widget> _pages = [
           ClubLeaderDashboard(clubDoc: clubDoc),
           EventPage(clubId: clubDoc.id),
-          ClubProfilePage(clubDoc: clubDoc), // <-- Pass the data here!
+          MembersScreen(clubDoc: clubDoc),
+          ClubProfilePage(clubDoc: clubDoc),
         ];
 
         return Scaffold(
@@ -58,6 +60,7 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Stats'),
               BottomNavigationBarItem(icon: Icon(Icons.event_note_rounded), label: 'Events'),
+              BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: 'Members'),
               BottomNavigationBarItem(icon: Icon(Icons.account_balance_rounded), label: 'Club Profile'),
             ],
           ),
