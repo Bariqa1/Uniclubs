@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -46,6 +48,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     if (!mounted) return;
 
     if (result['success']) {
+      // Send welcome notification (user is briefly signed in after registration)
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final firstName = _nameController.text.trim().split(' ').first;
+        NotificationService().createLocalNotification(
+          userId: uid,
+          type: 'welcome',
+          title: 'Welcome to UniClubs, $firstName!',
+          body: 'Discover clubs and events at your university. Start exploring today!',
+        );
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Account created successfully! Please login.'),

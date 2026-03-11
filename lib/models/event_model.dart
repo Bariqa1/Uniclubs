@@ -70,6 +70,15 @@ class Event {
     };
   }
 
+  /// Effective status derived from the event date (ignores stale stored value).
+  /// Only respects stored 'cancelled' — everything else is computed.
+  String get effectiveStatus {
+    if (status == 'cancelled') return 'cancelled';
+    final now = DateTime.now();
+    if (date.isAfter(now)) return 'upcoming';
+    return 'completed';
+  }
+
   /// Check if event is full
   bool get isFull => currentRegistrations >= capacity;
 
@@ -79,7 +88,7 @@ class Event {
     if (registrationDeadline != null && DateTime.now().isAfter(registrationDeadline!)) {
       return false;
     }
-    return status == 'upcoming';
+    return effectiveStatus == 'upcoming';
   }
 
   /// Get fill percentage

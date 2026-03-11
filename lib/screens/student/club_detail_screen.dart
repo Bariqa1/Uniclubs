@@ -15,6 +15,7 @@ class ClubDetailScreen extends StatefulWidget {
 class _ClubDetailScreenState extends State<ClubDetailScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   bool _isJoining = false;
+  bool _isLeaving = false;
   bool _isMember = false;
   bool _isPending = false;
 
@@ -29,9 +30,13 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
     if (user == null) return;
 
     try {
-      final clubs = await _firestoreService.getUserClubs(user.uid);
-      final isMember = clubs.any((c) => c['id'] == widget.club.id);
-      if (mounted) setState(() => _isMember = isMember);
+      final status = await _firestoreService.getMembershipStatus(user.uid, widget.club.id);
+      if (mounted) {
+        setState(() {
+          _isMember = status == 'approved';
+          _isPending = status == 'pending';
+        });
+      }
     } catch (_) {}
   }
 
@@ -56,6 +61,61 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
     );
 
     if (result['success']) setState(() => _isPending = true);
+  }
+
+  Future<void> _handleLeave() async {
+    final actionLabel = _isPending ? 'Cancel Request' : 'Leave Club';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          actionLabel,
+          style: const TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          _isPending
+              ? 'Cancel your membership request for "${widget.club.name}"?'
+              : 'Are you sure you want to leave "${widget.club.name}"?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(actionLabel, style: const TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _isLeaving = true);
+    final result = await _firestoreService.leaveClub(user.uid, widget.club.id);
+    if (!mounted) return;
+    setState(() => _isLeaving = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result['message']),
+        backgroundColor: result['success'] ? Colors.orange : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+    if (result['success']) setState(() { _isMember = false; _isPending = false; });
   }
 
   @override
@@ -399,44 +459,129 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
   }
 
   Widget _buildJoinButton(Club club) {
-    final buttonText = _isMember
-        ? 'Already a Member'
-        : _isPending
-            ? 'Request Pending'
-            : 'Join Club';
+    final bool loading = _isJoining || _isLeaving;
 
-    final buttonColor = _isMember
-        ? Colors.green
-        : _isPending
-            ? Colors.orange
-            : const Color(0xFF3674B5);
+    if (_isMember) {
+      return Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.green.withOpacity(0.3)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'You are a member!',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: loading ? null : _handleLeave,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: const BorderSide(color: Colors.red),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              child: _isLeaving
+                  ? const SizedBox(
+                      height: 20, width: 20,
+                      child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2),
+                    )
+                  : const Text('Leave Club',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      );
+    }
 
-    final canJoin = !_isMember && !_isPending;
+    if (_isPending) {
+      return Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.hourglass_top_rounded, color: Colors.orange, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Request pending approval',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: loading ? null : _handleLeave,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red,
+                side: const BorderSide(color: Colors.red),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              ),
+              child: _isLeaving
+                  ? const SizedBox(
+                      height: 20, width: 20,
+                      child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2),
+                    )
+                  : const Text('Cancel Request',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ],
+      );
+    }
 
+    // Not a member
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: (canJoin && !_isJoining) ? _handleJoin : null,
+        onPressed: (club.isActive && !loading) ? _handleJoin : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: buttonColor,
-          disabledBackgroundColor: buttonColor,
+          backgroundColor: const Color(0xFF3674B5),
+          disabledBackgroundColor: Colors.grey,
           padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 0,
         ),
         child: _isJoining
             ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
+                height: 22, width: 22,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
               )
             : Text(
-                buttonText,
+                club.isActive ? 'Request to Join' : 'Club Inactive',
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,

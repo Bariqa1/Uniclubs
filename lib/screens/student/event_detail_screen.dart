@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/event_model.dart';
 import '../../services/firestore_service.dart';
+import '../../services/notification_service.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final Event event;
@@ -15,6 +16,7 @@ class EventDetailScreen extends StatefulWidget {
 class _EventDetailScreenState extends State<EventDetailScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   bool _isRegistering = false;
+  bool _isCancelling = false;
   bool _isRegistered = false;
 
   @override
@@ -54,7 +56,69 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ),
     );
 
-    if (result['success']) setState(() => _isRegistered = true);
+    if (result['success']) {
+      setState(() => _isRegistered = true);
+      NotificationService().createLocalNotification(
+        userId: user.uid,
+        type: 'registration_confirmation',
+        title: 'Registration Confirmed!',
+        body: 'You\'re registered for "${widget.event.title}". See you there!',
+      );
+    }
+  }
+
+  Future<void> _handleCancel() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Cancel Registration',
+          style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Are you sure you want to cancel your registration for "${widget.event.title}"?',
+          style: const TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Cancel Registration', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _isCancelling = true);
+
+    final result = await _firestoreService.cancelRegistration(user.uid, widget.event.id);
+
+    if (!mounted) return;
+    setState(() => _isCancelling = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result['message']),
+        backgroundColor: result['success'] ? Colors.orange : Colors.red,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+    if (result['success']) setState(() => _isRegistered = false);
   }
 
   @override
@@ -446,42 +510,92 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   }
 
   Widget _buildRegisterButton(Event event) {
-    final canRegister = event.isRegistrationOpen && !_isRegistered;
+    final bool loading = _isRegistering || _isCancelling;
 
+    if (_isRegistered) {
+      return Column(
+        children: [
+          // Registered confirmation row
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.green.withOpacity(0.3)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'You are registered!',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (event.date.isAfter(DateTime.now())) ...[
+            const SizedBox(height: 12),
+            // Cancel button — only shown for upcoming events
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: loading ? null : _handleCancel,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: _isCancelling
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Cancel Registration',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                      ),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+
+    // Not registered
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: (canRegister && !_isRegistering) ? _handleRegister : null,
+        onPressed: (event.isRegistrationOpen && !loading) ? _handleRegister : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _isRegistered
-              ? Colors.green
-              : event.isFull
-                  ? Colors.grey
-                  : const Color(0xFF3674B5),
-          disabledBackgroundColor: _isRegistered ? Colors.green : Colors.grey,
+          backgroundColor: event.isFull ? Colors.grey : const Color(0xFF3674B5),
+          disabledBackgroundColor: Colors.grey,
           padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 0,
         ),
         child: _isRegistering
             ? const SizedBox(
                 height: 22,
                 width: 22,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
-                ),
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
               )
             : Text(
-                _isRegistered
-                    ? 'Registered'
-                    : event.isFull
-                        ? 'Event Full'
-                        : !event.isRegistrationOpen
-                            ? 'Registration Closed'
-                            : 'Register Now',
+                event.isFull
+                    ? 'Event Full'
+                    : !event.isRegistrationOpen
+                        ? 'Registration Closed'
+                        : 'Register Now',
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,

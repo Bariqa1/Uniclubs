@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
+import 'my_registrations_screen.dart';
+import 'my_clubs_screen.dart';
+import 'my_feedback_screen.dart';
+import 'edit_profile_screen.dart';
+import 'notifications_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -44,17 +49,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       List<Map<String, dynamic>> clubs = await _firestoreService.getUserClubs(userId);
       
       // Get user's registrations (for events attended count)
-      List<Map<String, dynamic>> registrations = 
+      List<Map<String, dynamic>> registrations =
           await _firestoreService.getUserRegistrations(userId);
-      
-      // TODO: Get feedback count from Firestore when feedback collection is ready
-      // For now, using placeholder value
-      
+
+      // Get user's feedback count
+      final feedbackCount = await _firestoreService.getFeedbackCount(userId);
+
       setState(() {
         _userProfile = profile;
         _clubsJoined = clubs.length;
         _eventsAttended = registrations.length;
-        _feedbackGiven = 8; // Placeholder
+        _feedbackGiven = feedbackCount;
         _isLoading = false;
       });
     } catch (e) {
@@ -125,8 +130,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
       child: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
+        child: RefreshIndicator(
+          onRefresh: _loadUserData,
+          color: const Color(0xFF3674B5),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
@@ -142,10 +151,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 20),
                 _buildSettingsSection(),
                 const SizedBox(height: 20),
-                _buildLogoutButton(),
-                const SizedBox(height: 20),
               ],
             ),
+          ),
           ),
         ),
       ),
@@ -164,17 +172,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: Color(0xFF3674B5),
           ),
         ),
-        IconButton(
-          onPressed: () {
-            // TODO: Navigate to edit profile screen
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Edit profile coming soon!'),
-                duration: Duration(seconds: 1),
-              ),
-            );
-          },
-          icon: const Icon(Icons.edit, color: Color(0xFF3674B5)),
+        Row(
+          children: [
+            IconButton(
+              onPressed: () async {
+                if (_userProfile == null) return;
+                final updated = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => EditProfileScreen(userProfile: _userProfile!),
+                  ),
+                );
+                if (updated == true) _loadUserData();
+              },
+              icon: const Icon(Icons.edit, color: Color(0xFF3674B5)),
+            ),
+            IconButton(
+              onPressed: _handleLogout,
+              icon: const Icon(Icons.logout, color: Colors.redAccent),
+            ),
+          ],
         ),
       ],
     );
@@ -197,41 +214,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         children: [
           // Profile Picture
-          Stack(
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
-                  ),
-                  shape: BoxShape.circle,
-                ),
-                child: const Center(
-                  child: Text(
-                    '👤',
-                    style: TextStyle(fontSize: 50),
-                  ),
-                ),
+          Container(
+            width: 100,
+            height: 100,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
               ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF3674B5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.camera_alt,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                ),
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Text(
+                '👤',
+                style: TextStyle(fontSize: 50),
               ),
-            ],
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -290,7 +287,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Expanded(
           child: _buildStatCard(
             icon: Icons.groups,
-            label: 'Clubs Joined',
+            label: 'Joined Clubs',
             value: _clubsJoined.toString(),
             color: const Color(0xFF3674B5),
           ),
@@ -299,7 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Expanded(
           child: _buildStatCard(
             icon: Icons.event,
-            label: 'Events Attended',
+            label: 'Registered Events',
             value: _eventsAttended.toString(),
             color: const Color(0xFF578FCA),
           ),
@@ -400,14 +397,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               TextButton.icon(
-                onPressed: () {
-                  // TODO: Navigate to edit interests screen
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Edit interests coming soon!'),
-                      duration: Duration(seconds: 1),
+                onPressed: () async {
+                  if (_userProfile == null) return;
+                  final updated = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EditProfileScreen(userProfile: _userProfile!),
                     ),
                   );
+                  if (updated == true) _loadUserData();
                 },
                 icon: const Icon(Icons.edit, size: 16),
                 label: const Text('Edit'),
@@ -485,41 +483,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildActionTile(
             icon: Icons.event_note,
             title: 'My Registrations',
-            onTap: () {
-              // TODO: Navigate to my registrations screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('My Registrations coming soon!'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyRegistrationsScreen()),
+            ),
           ),
           _buildActionTile(
             icon: Icons.groups,
             title: 'My Clubs',
-            onTap: () {
-              // TODO: Navigate to my clubs screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('My Clubs coming soon!'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyClubsScreen()),
+            ),
           ),
           _buildActionTile(
             icon: Icons.feedback,
             title: 'My Feedback',
-            onTap: () {
-              // TODO: Navigate to my feedback screen
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('My Feedback coming soon!'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyFeedbackScreen()),
+            ),
           ),
         ],
       ),
@@ -555,9 +538,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildActionTile(
             icon: Icons.notifications_outlined,
             title: 'Notifications',
-            onTap: () {
-              // TODO: Navigate to notifications settings
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            ),
           ),
           _buildActionTile(
             icon: Icons.lock_outline,
@@ -569,11 +553,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildActionTile(
             icon: Icons.key_outlined,
             title: 'Change Password',
-            onTap: () {
-              // TODO: Navigate to change password screen
-            },
+            onTap: () => _showChangePasswordSheet(),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showChangePasswordSheet() {
+    final currentPwCtrl = TextEditingController();
+    final newPwCtrl = TextEditingController();
+    final confirmPwCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ChangePasswordSheet(
+        authService: _authService,
+        currentPwCtrl: currentPwCtrl,
+        newPwCtrl: newPwCtrl,
+        confirmPwCtrl: confirmPwCtrl,
       ),
     );
   }
@@ -620,36 +620,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildLogoutButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: _handleLogout,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.logout, color: Colors.white),
-            SizedBox(width: 12),
-            Text(
-              'Logout',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   String _getInterestEmoji(String interest) {
     final emojiMap = {
@@ -663,5 +633,193 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Art': '🎨',
     };
     return emojiMap[interest] ?? '⭐';
+  }
+}
+
+class _ChangePasswordSheet extends StatefulWidget {
+  final AuthService authService;
+  final TextEditingController currentPwCtrl;
+  final TextEditingController newPwCtrl;
+  final TextEditingController confirmPwCtrl;
+
+  const _ChangePasswordSheet({
+    required this.authService,
+    required this.currentPwCtrl,
+    required this.newPwCtrl,
+    required this.confirmPwCtrl,
+  });
+
+  @override
+  State<_ChangePasswordSheet> createState() => _ChangePasswordSheetState();
+}
+
+class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
+  bool _isLoading = false;
+  bool _showCurrent = false;
+  bool _showNew = false;
+  bool _showConfirm = false;
+  String? _errorText;
+
+  Future<void> _submit() async {
+    final current = widget.currentPwCtrl.text.trim();
+    final newPw = widget.newPwCtrl.text.trim();
+    final confirm = widget.confirmPwCtrl.text.trim();
+
+    if (current.isEmpty || newPw.isEmpty || confirm.isEmpty) {
+      setState(() => _errorText = 'Please fill in all fields.');
+      return;
+    }
+    if (newPw.length < 6) {
+      setState(() => _errorText = 'New password must be at least 6 characters.');
+      return;
+    }
+    if (newPw != confirm) {
+      setState(() => _errorText = 'New passwords do not match.');
+      return;
+    }
+
+    setState(() { _isLoading = true; _errorText = null; });
+
+    final result = await widget.authService.changePassword(
+      currentPassword: current,
+      newPassword: newPw,
+    );
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Password changed successfully!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } else {
+      setState(() => _errorText = result['message']);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle bar
+          Center(
+            child: Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const Text(
+            'Change Password',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF3674B5),
+            ),
+          ),
+          const SizedBox(height: 20),
+          _buildField(
+            controller: widget.currentPwCtrl,
+            label: 'Current Password',
+            obscure: !_showCurrent,
+            onToggle: () => setState(() => _showCurrent = !_showCurrent),
+          ),
+          const SizedBox(height: 14),
+          _buildField(
+            controller: widget.newPwCtrl,
+            label: 'New Password',
+            obscure: !_showNew,
+            onToggle: () => setState(() => _showNew = !_showNew),
+          ),
+          const SizedBox(height: 14),
+          _buildField(
+            controller: widget.confirmPwCtrl,
+            label: 'Confirm New Password',
+            obscure: !_showConfirm,
+            onToggle: () => setState(() => _showConfirm = !_showConfirm),
+          ),
+          if (_errorText != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              _errorText!,
+              style: const TextStyle(color: Colors.red, fontSize: 13),
+            ),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _isLoading ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF3674B5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 22, height: 22,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text(
+                      'Update Password',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required bool obscure,
+    required VoidCallback onToggle,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: Color(0xFF578FCA)),
+        filled: true,
+        fillColor: const Color(0xFFE8F4FD),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF3674B5)),
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+            color: const Color(0xFF578FCA),
+          ),
+          onPressed: onToggle,
+        ),
+      ),
+    );
   }
 }

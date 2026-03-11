@@ -1,1 +1,27 @@
-{"firestore":{"database":"(default)","location":"us-central1","rules":"firebase/firestore.rules","indexes":"firebase/firestore.indexes.json"},"flutter":{"platforms":{"android":{"default":{"projectId":"uniclubs-f926d","appId":"1:1033391541295:android:a9098c0771ff9c74bdcada","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"uniclubs-f926d","configurations":{"android":"1:1033391541295:android:a9098c0771ff9c74bdcada"}}}}}}
+{
+  "firestore": {
+    "database": "(default)",
+    "location": "us-central1",
+    "rules": "firebase/firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "uniclubs-f926d",
+          "appId": "1:1033391541295:android:a9098c0771ff9c74bdcada",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "uniclubs-f926d",
+          "configurations": {
+            "android": "1:1033391541295:android:a9098c0771ff9c74bdcada"
+          }
+        }
+      }
+    }
+  }
+}

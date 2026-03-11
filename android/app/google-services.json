@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "1033391541295-rm5fih267q8hfk9fanicuakujc26408t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.uniclubs",
+            "certificate_hash": "d8fdd7f1c9c70ee8b2bae4c52d188ccde9f63ff7"
+          }
+        },
+        {
           "client_id": "1033391541295-jlsna1minfle6sjqjgs8f7qru82rg1jm.apps.googleusercontent.com",
           "client_type": 3
         }

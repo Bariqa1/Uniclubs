@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -34,16 +35,19 @@ class FirestoreService {
     try {
       QuerySnapshot snapshot = await _firestore
           .collection('events')
-          .where('status', isEqualTo: 'completed')
+          .where('date', isLessThan: Timestamp.now())
           .orderBy('date', descending: true)
           .limit(limit)
           .get();
 
-      return snapshot.docs.map((doc) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        data['id'] = doc.id;
-        return data;
-      }).toList();
+      return snapshot.docs
+          .map((doc) {
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            data['id'] = doc.id;
+            return data;
+          })
+          .where((data) => data['status'] != 'cancelled')
+          .toList();
     } catch (e) {
       print('Error getting past events: $e');
       return [];
@@ -228,6 +232,17 @@ class FirestoreService {
     }
   }
 
+  /// Update user profile fields (name, bio, phone, etc.)
+  Future<bool> updateUserProfile(String userId, Map<String, dynamic> data) async {
+    try {
+      await _firestore.collection('users').doc(userId).update(data);
+      return true;
+    } catch (e) {
+      print('Error updating user profile: $e');
+      return false;
+    }
+  }
+
   /// Update user interests
   Future<bool> updateUserInterests(String userId, List<String> interests) async {
     try {
@@ -245,27 +260,27 @@ class FirestoreService {
   // REGISTRATIONS
   // ============================================
 
-  /// Get user's event registrations
+  /// Get user's event registrations (registered + attended, excludes cancelled)
   Future<List<Map<String, dynamic>>> getUserRegistrations(String userId) async {
     try {
       QuerySnapshot snapshot = await _firestore
           .collection('registrations')
           .where('userId', isEqualTo: userId)
-          .where('status', isEqualTo: 'registered')
           .get();
 
-      // Get full event details for each registration
       List<Map<String, dynamic>> registrations = [];
-      
+
       for (var doc in snapshot.docs) {
         Map<String, dynamic> regData = doc.data() as Map<String, dynamic>;
+        final regStatus = regData['status'] as String? ?? 'registered';
+        if (regStatus == 'cancelled') continue;
+
         String eventId = regData['eventId'];
-        
-        // Get event details
         Map<String, dynamic>? eventData = await getEvent(eventId);
-        
+
         if (eventData != null) {
           eventData['registrationId'] = doc.id;
+          eventData['registrationStatus'] = regStatus;
           eventData['registeredAt'] = regData['registeredAt'];
           registrations.add(eventData);
         }
@@ -273,7 +288,7 @@ class FirestoreService {
 
       return registrations;
     } catch (e) {
-      print('Error getting user registrations: $e');
+      debugPrint('Error getting user registrations: $e');
       return [];
     }
   }
@@ -281,11 +296,12 @@ class FirestoreService {
   /// Register for event
   Future<Map<String, dynamic>> registerForEvent(String userId, String eventId) async {
     try {
-      // Check if already registered
+      // Check if already registered (ignore cancelled registrations)
       QuerySnapshot existing = await _firestore
           .collection('registrations')
           .where('userId', isEqualTo: userId)
           .where('eventId', isEqualTo: eventId)
+          .where('status', isEqualTo: 'registered')
           .get();
 
       if (existing.docs.isNotEmpty) {
@@ -295,10 +311,24 @@ class FirestoreService {
         };
       }
 
-      // Check event capacity
+      // Check event validity (status, date, deadline, capacity)
       DocumentSnapshot eventDoc = await _firestore.collection('events').doc(eventId).get();
       Map<String, dynamic> eventData = eventDoc.data() as Map<String, dynamic>;
-      
+
+      if (eventData['status'] == 'cancelled') {
+        return {'success': false, 'message': 'This event has been cancelled'};
+      }
+
+      final eventDate = (eventData['date'] as Timestamp?)?.toDate();
+      if (eventDate != null && !eventDate.isAfter(DateTime.now())) {
+        return {'success': false, 'message': 'This event has already passed'};
+      }
+
+      final deadline = (eventData['registrationDeadline'] as Timestamp?)?.toDate();
+      if (deadline != null && DateTime.now().isAfter(deadline)) {
+        return {'success': false, 'message': 'Registration deadline has passed'};
+      }
+
       int capacity = eventData['capacity'] ?? 0;
       int currentRegistrations = eventData['currentRegistrations'] ?? 0;
 
@@ -332,6 +362,66 @@ class FirestoreService {
         'success': false,
         'message': 'Failed to register. Please try again.',
       };
+    }
+  }
+
+  /// Get all registrants for an event (leader use) — excludes cancelled registrations.
+  /// Returns list with keys: registrationId, userId, userName, userEmail, status, registeredAt, attendedAt
+  Future<List<Map<String, dynamic>>> getEventRegistrants(String eventId) async {
+    try {
+      final snap = await _firestore
+          .collection('registrations')
+          .where('eventId', isEqualTo: eventId)
+          .get();
+
+      final List<Map<String, dynamic>> result = [];
+      for (final doc in snap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final status = data['status'] ?? 'registered';
+        if (status == 'cancelled') continue; // skip cancelled client-side
+        final userData = await getUserProfile(data['userId'] ?? '');
+        result.add({
+          'registrationId': doc.id,
+          'userId': data['userId'] ?? '',
+          'userName': userData?['name'] ?? 'Unknown',
+          'userEmail': userData?['email'] ?? '',
+          'status': status,
+          'registeredAt': data['registeredAt'],
+          'attendedAt': data['attendedAt'],
+        });
+      }
+      return result;
+    } catch (e) {
+      print('Error getting event registrants: $e');
+      return [];
+    }
+  }
+
+  /// Mark a registration as attended (leader use)
+  Future<bool> markAttended(String registrationId) async {
+    try {
+      await _firestore.collection('registrations').doc(registrationId).update({
+        'status': 'attended',
+        'attendedAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      print('Error marking attended: $e');
+      return false;
+    }
+  }
+
+  /// Unmark attendance — revert back to registered (leader use)
+  Future<bool> unmarkAttended(String registrationId) async {
+    try {
+      await _firestore.collection('registrations').doc(registrationId).update({
+        'status': 'registered',
+        'attendedAt': FieldValue.delete(),
+      });
+      return true;
+    } catch (e) {
+      print('Error unmarking attended: $e');
+      return false;
     }
   }
 
@@ -376,6 +466,98 @@ class FirestoreService {
   }
 
   // ============================================
+  // FEEDBACK
+  // ============================================
+
+  /// Count how many feedback docs this user has submitted (no composite index needed)
+  Future<int> getFeedbackCount(String userId) async {
+    try {
+      final snap = await _firestore
+          .collection('feedback')
+          .where('userId', isEqualTo: userId)
+          .count()
+          .get();
+      return snap.count ?? 0;
+    } catch (e) {
+      debugPrint('Error getting feedback count: $e');
+      return 0;
+    }
+  }
+
+  /// Get user's submitted feedback with event details
+  Future<List<Map<String, dynamic>>> getUserFeedback(String userId) async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection('feedback')
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      List<Map<String, dynamic>> feedbackList = [];
+
+      for (var doc in snapshot.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['feedbackId'] = doc.id;
+
+        // Attach event title
+        String eventId = data['eventId'] ?? '';
+        if (eventId.isNotEmpty) {
+          Map<String, dynamic>? eventData = await getEvent(eventId);
+          data['eventTitle'] = eventData?['title'] ?? 'Unknown Event';
+        } else {
+          data['eventTitle'] = 'Unknown Event';
+        }
+
+        feedbackList.add(data);
+      }
+
+      return feedbackList;
+    } catch (e) {
+      print('Error getting user feedback: $e');
+      return [];
+    }
+  }
+
+  /// Submit feedback for an attended event
+  Future<bool> submitFeedback({
+    required String userId,
+    required String eventId,
+    required int rating,
+    required String comment,
+  }) async {
+    try {
+      await _firestore.collection('feedback').add({
+        'userId': userId,
+        'eventId': eventId,
+        'rating': rating,
+        'comment': comment.trim(),
+        'sentimentLabel': null,
+        'sentimentScore': null,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      debugPrint('Error submitting feedback: $e');
+      return false;
+    }
+  }
+
+  /// Check if user has already submitted feedback for an event
+  Future<bool> hasSubmittedFeedback(String userId, String eventId) async {
+    try {
+      final snap = await _firestore
+          .collection('feedback')
+          .where('userId', isEqualTo: userId)
+          .where('eventId', isEqualTo: eventId)
+          .limit(1)
+          .get();
+      return snap.docs.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ============================================
   // MEMBERSHIPS
   // ============================================
 
@@ -408,6 +590,147 @@ class FirestoreService {
     } catch (e) {
       print('Error getting user clubs: $e');
       return [];
+    }
+  }
+
+  /// Get membership status for a user in a club: 'none' | 'pending' | 'approved' | 'rejected'
+  Future<String> getMembershipStatus(String userId, String clubId) async {
+    try {
+      QuerySnapshot snap = await _firestore
+          .collection('memberships')
+          .where('userId', isEqualTo: userId)
+          .where('clubId', isEqualTo: clubId)
+          .limit(1)
+          .get();
+      if (snap.docs.isEmpty) return 'none';
+      return (snap.docs.first.data() as Map<String, dynamic>)['status'] ?? 'none';
+    } catch (e) {
+      return 'none';
+    }
+  }
+
+  /// Leave an approved club or cancel a pending request
+  Future<Map<String, dynamic>> leaveClub(String userId, String clubId) async {
+    try {
+      QuerySnapshot snap = await _firestore
+          .collection('memberships')
+          .where('userId', isEqualTo: userId)
+          .where('clubId', isEqualTo: clubId)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isEmpty) return {'success': false, 'message': 'Membership not found'};
+
+      final doc = snap.docs.first;
+      final status = (doc.data() as Map<String, dynamic>)['status'];
+
+      await doc.reference.delete();
+
+      if (status == 'approved') {
+        await _firestore.collection('clubs').doc(clubId).update({
+          'memberCount': FieldValue.increment(-1),
+        });
+        return {'success': true, 'message': 'You have left the club'};
+      }
+
+      return {'success': true, 'message': 'Membership request cancelled'};
+    } catch (e) {
+      print('Error leaving club: $e');
+      return {'success': false, 'message': 'Failed. Please try again.'};
+    }
+  }
+
+  /// Get pending membership requests for a club (leader use)
+  Future<List<Map<String, dynamic>>> getPendingRequests(String clubId) async {
+    try {
+      QuerySnapshot snap = await _firestore
+          .collection('memberships')
+          .where('clubId', isEqualTo: clubId)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      List<Map<String, dynamic>> requests = [];
+      for (var doc in snap.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['membershipId'] = doc.id;
+        Map<String, dynamic>? userData = await getUserProfile(data['userId']);
+        data['userName'] = userData?['name'] ?? 'Unknown User';
+        data['userEmail'] = userData?['email'] ?? '';
+        requests.add(data);
+      }
+      return requests;
+    } catch (e) {
+      print('Error getting pending requests: $e');
+      return [];
+    }
+  }
+
+  /// Get approved members of a club (leader use)
+  Future<List<Map<String, dynamic>>> getClubMembers(String clubId) async {
+    try {
+      QuerySnapshot snap = await _firestore
+          .collection('memberships')
+          .where('clubId', isEqualTo: clubId)
+          .where('status', isEqualTo: 'approved')
+          .get();
+
+      List<Map<String, dynamic>> members = [];
+      for (var doc in snap.docs) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['membershipId'] = doc.id;
+        Map<String, dynamic>? userData = await getUserProfile(data['userId']);
+        data['userName'] = userData?['name'] ?? 'Unknown User';
+        data['userEmail'] = userData?['email'] ?? '';
+        members.add(data);
+      }
+      return members;
+    } catch (e) {
+      print('Error getting club members: $e');
+      return [];
+    }
+  }
+
+  /// Approve a membership request (leader use)
+  Future<Map<String, dynamic>> approveMembership(String membershipId, String clubId) async {
+    try {
+      await _firestore.collection('memberships').doc(membershipId).update({
+        'status': 'approved',
+        'approvedAt': FieldValue.serverTimestamp(),
+      });
+      await _firestore.collection('clubs').doc(clubId).update({
+        'memberCount': FieldValue.increment(1),
+      });
+      return {'success': true, 'message': 'Member approved!'};
+    } catch (e) {
+      print('Error approving membership: $e');
+      return {'success': false, 'message': 'Failed to approve.'};
+    }
+  }
+
+  /// Reject a membership request (leader use)
+  Future<Map<String, dynamic>> rejectMembership(String membershipId) async {
+    try {
+      await _firestore.collection('memberships').doc(membershipId).update({
+        'status': 'rejected',
+      });
+      return {'success': true, 'message': 'Request rejected'};
+    } catch (e) {
+      print('Error rejecting membership: $e');
+      return {'success': false, 'message': 'Failed to reject.'};
+    }
+  }
+
+  /// Remove an approved member from a club (leader use)
+  Future<Map<String, dynamic>> removeMember(String membershipId, String clubId) async {
+    try {
+      await _firestore.collection('memberships').doc(membershipId).delete();
+      await _firestore.collection('clubs').doc(clubId).update({
+        'memberCount': FieldValue.increment(-1),
+      });
+      return {'success': true, 'message': 'Member removed'};
+    } catch (e) {
+      print('Error removing member: $e');
+      return {'success': false, 'message': 'Failed to remove member.'};
     }
   }
 

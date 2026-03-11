@@ -67,8 +67,11 @@ service cloud.firestore {
       // Only admins can create clubs
       allow create: if isAdmin();
       
-      // Club leaders can update their own clubs, admins can update any
-      allow update: if isClubLeaderOf(clubId) || isAdmin();
+      // Club leaders and admins can fully update clubs
+      // Authenticated users can only update memberCount (for join/leave)
+      allow update: if isClubLeaderOf(clubId) || isAdmin() ||
+                       (isAuthenticated() &&
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberCount']));
       
       // Only admins can delete clubs
       allow delete: if isAdmin();
@@ -86,8 +89,12 @@ service cloud.firestore {
       allow create: if (isClubLeaderOf(request.resource.data.clubId) || isAdmin()) &&
                        request.resource.data.keys().hasAll(['clubId', 'title', 'date']);
       
-      // Club leaders can update/delete their club's events
-      allow update, delete: if isClubLeaderOf(resource.data.clubId) || isAdmin();
+      // Club leaders and admins can fully update/delete events
+      // Authenticated users can only increment/decrement currentRegistrations (for register/cancel)
+      allow update: if isClubLeaderOf(resource.data.clubId) || isAdmin() ||
+                       (isAuthenticated() &&
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['currentRegistrations']));
+      allow delete: if isClubLeaderOf(resource.data.clubId) || isAdmin();
     }
     
     // ═══════════════════════════════════════
@@ -95,16 +102,28 @@ service cloud.firestore {
     // ═══════════════════════════════════════
     
     match /registrations/{registrationId} {
-      // Users can read their own registrations, club leaders can read registrations for their events
-      allow read: if isOwner(resource.data.userId) || isAdmin();
-      
+      // Users can read their own registrations
+      // Club leaders can read registrations for events belonging to their club
+      allow read: if isOwner(resource.data.userId) ||
+                     isAdmin() ||
+                     isClubLeaderOf(
+                       get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.clubId
+                     );
+
       // Users can register themselves for events
       allow create: if isAuthenticated() &&
                        isOwner(request.resource.data.userId) &&
                        request.resource.data.keys().hasAll(['userId', 'eventId']);
-      
+
       // Users can update/cancel their own registrations
-      allow update, delete: if isOwner(resource.data.userId);
+      // Club leaders can update registrations (to mark attendance)
+      allow update: if isOwner(resource.data.userId) ||
+                       isClubLeaderOf(
+                         get(/databases/$(database)/documents/events/$(resource.data.eventId)).data.clubId
+                       ) ||
+                       isAdmin();
+
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
     
     // ═══════════════════════════════════════
@@ -148,6 +167,26 @@ service cloud.firestore {
     }
     
     // ═══════════════════════════════════════
+    // NOTIFICATIONS COLLECTION
+    // ═══════════════════════════════════════
+
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isAuthenticated() && isOwner(resource.data.userId);
+
+      // Any authenticated user can create notifications (needed for cross-user triggers
+      // e.g. leader writing membership_approved notification for a student)
+      allow create: if isAuthenticated();
+
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && isOwner(resource.data.userId) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() && isOwner(resource.data.userId);
+    }
+
+    // ═══════════════════════════════════════
     // CLUB LEADER REQUESTS COLLECTION
     // ═══════════════════════════════════════
     
@@ -166,6 +205,30 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
+    // ═══════════════════════════════════════
+    // POSTS COLLECTION
+    // ═══════════════════════════════════════
+
+    match /posts/{postId} {
+      // Anyone can read posts (public club updates)
+      allow read: if true;
+
+      // Only the club leader of that club can create/update/delete posts
+      allow create: if isClubLeaderOf(request.resource.data.clubId) || isAdmin();
+      allow update, delete: if isClubLeaderOf(resource.data.clubId) || isAdmin();
+    }
+
+    match /comments/{commentId} {
+      // Anyone authenticated can read comments
+      allow read: if isAuthenticated();
+
+      // Anyone authenticated can post a comment
+      allow create: if isAuthenticated();
+
+      // Only comment author or admin can delete
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
     // ═══════════════════════════════════════
     // TEST COLLECTION (for development only)
     // ═══════════════════════════════════════

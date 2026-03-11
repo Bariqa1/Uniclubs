@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/firestore_service.dart';
+import '../../services/notification_service.dart';
 import '../../models/event_model.dart';
 import 'events_discovery_screen.dart';
 import 'clubs_discovery_screen.dart';
 import 'profile_screen.dart';
 import 'event_detail_screen.dart';
+import 'my_clubs_screen.dart';
+import 'my_registrations_screen.dart';
+import 'notifications_screen.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -139,6 +144,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadEvents();
+    // Check for event reminders and feedback reminders on every app open
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      NotificationService().checkAndSendReminders(uid);
+    }
   }
 
   Future<void> _loadEvents() async {
@@ -193,6 +203,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 24),
                       _buildUpcomingEventsSection(),
                       const SizedBox(height: 24),
+                      _buildClubUpdatesSection(),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),
@@ -228,33 +240,61 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF578FCA).withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+          StreamBuilder<int>(
+            stream: NotificationService().unreadCountStream(),
+            builder: (context, snapshot) {
+              final unreadCount = snapshot.data ?? 0;
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF578FCA).withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: IconButton(
-              onPressed: () {
-                // TODO: Navigate to notifications screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Notifications coming soon!'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-              icon: const Icon(
-                Icons.notifications_outlined,
-                color: Color(0xFF3674B5),
-              ),
-            ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                      ),
+                      icon: const Icon(
+                        Icons.notifications_outlined,
+                        color: Color(0xFF3674B5),
+                      ),
+                    ),
+                    if (unreadCount > 0)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Text(
+                            unreadCount > 9 ? '9+' : '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -459,16 +499,13 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Expanded(
             child: _buildQuickActionButton(
-              icon: Icons.search,
-              label: 'Browse Clubs',
+              icon: Icons.groups_rounded,
+              label: 'My Clubs',
               color: const Color(0xFF3674B5),
-              onTap: () {
-                // Switch to Clubs tab (index 2)
-                final dashboardState = context.findAncestorStateOfType<_StudentDashboardState>();
-                dashboardState?.setState(() {
-                  dashboardState._currentIndex = 2;
-                });
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MyClubsScreen()),
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -477,15 +514,10 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.event_note,
               label: 'My Events',
               color: const Color(0xFF578FCA),
-              onTap: () {
-                // TODO: Navigate to My Events screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('My Events screen coming soon!'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MyRegistrationsScreen()),
+              ),
             ),
           ),
         ],
@@ -666,6 +698,196 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+      ),
+    );
+  }
+
+  Widget _buildClubUpdatesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFA1E3F9).withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.campaign_rounded,
+                    color: Color(0xFF3674B5), size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Clubs Updates',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3674B5),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('posts')
+              .orderBy('timestamp', descending: true)
+              .limit(10)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                    child: CircularProgressIndicator(color: Color(0xFF3674B5))),
+              );
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'No club updates yet',
+                  style: TextStyle(
+                      color: const Color(0xFF578FCA).withOpacity(0.7)),
+                ),
+              );
+            }
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: snapshot.data!.docs.length,
+              itemBuilder: (_, i) {
+                final data =
+                    snapshot.data!.docs[i].data() as Map<String, dynamic>;
+                return _buildPostCard(data);
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPostCard(Map<String, dynamic> data) {
+    final timestamp = data['timestamp'] as Timestamp?;
+    final date = timestamp?.toDate();
+    String dateStr = '';
+    if (date != null) {
+      final months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      dateStr = '${months[date.month]} ${date.day}';
+    }
+    final content = data['content'] as String? ?? '';
+    final List media = data['media'] ?? [];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF578FCA).withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFA1E3F9).withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: const Icon(Icons.campaign_rounded,
+                    size: 14, color: Color(0xFF3674B5)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if ((data['clubName'] as String? ?? '').isNotEmpty)
+                      Text(
+                        data['clubName'] as String,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF578FCA).withOpacity(0.8),
+                        ),
+                      ),
+                    Text(
+                      data['title'] as String? ?? 'Update',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF3674B5),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              if (dateStr.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Text(
+                  dateStr,
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: const Color(0xFF578FCA).withOpacity(0.6)),
+                ),
+              ],
+            ],
+          ),
+          if (content.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              content,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: const Color(0xFF3674B5).withOpacity(0.75),
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          if (media.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 110,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: media.length,
+                itemBuilder: (_, i) => Container(
+                  width: 110,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFA1E3F9).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                    image: DecorationImage(
+                      image: NetworkImage(media[i] as String),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

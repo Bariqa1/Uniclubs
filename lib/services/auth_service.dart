@@ -112,6 +112,35 @@ class AuthService {
     await _auth.signOut();
   }
 
+  /// Change password — requires current password to re-authenticate first
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null || user.email == null) {
+        return {'success': false, 'message': 'No authenticated user found.'};
+      }
+
+      // Re-authenticate with current credentials
+      final credential = EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+
+      // Update password
+      await user.updatePassword(newPassword);
+
+      return {'success': true, 'message': 'Password changed successfully!'};
+    } on FirebaseAuthException catch (e) {
+      return {'success': false, 'message': _getAuthErrorMessage(e.code)};
+    } catch (e) {
+      return {'success': false, 'message': 'An error occurred. Please try again.'};
+    }
+  }
+
   /// Send password reset email
   Future<Map<String, dynamic>> resetPassword({
     required String email,
