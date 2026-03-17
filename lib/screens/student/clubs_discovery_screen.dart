@@ -52,20 +52,23 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
       });
     } catch (e) {
       debugPrint('Error loading clubs: $e');
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _applyFilters() {
     setState(() {
       _displayedClubs = _allClubs.where((club) {
+        final isActive = club['status'] == 'active';
+
         final matchesCategory = _selectedCategories.isEmpty ||
             _selectedCategories.contains(club['category']);
         final matchesSearch = _searchController.text.isEmpty ||
             (club['name'] as String? ?? '')
                 .toLowerCase()
                 .contains(_searchController.text.toLowerCase());
-        return matchesCategory && matchesSearch;
+
+        return isActive && matchesCategory && matchesSearch;
       }).toList();
     });
   }
@@ -78,24 +81,26 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
     setState(() => _isLoading = true);
     try {
       final results = await _firestoreService.searchClubs(query);
-      setState(() {
-        _displayedClubs = results;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _displayedClubs = results.where((c) => c['status'] == 'active').toList();
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       debugPrint('Error searching: $e');
       _applyFilters();
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showCategoryDropdown(BuildContext buttonContext) {
     final button = buttonContext.findRenderObject() as RenderBox;
     final overlay =
-        Navigator.of(buttonContext).overlay!.context.findRenderObject()
-            as RenderBox;
+    Navigator.of(buttonContext).overlay!.context.findRenderObject()
+    as RenderBox;
     final offset =
-        button.localToGlobal(Offset(0, button.size.height + 4), ancestor: overlay);
+    button.localToGlobal(Offset(0, button.size.height + 4), ancestor: overlay);
 
     showMenu(
       context: buttonContext,
@@ -172,7 +177,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search clubs...',
                   hintStyle: TextStyle(
-                    color: const Color(0xFF578FCA).withOpacity(0.5),
+                    color: const Color(0xFF578FCA).withValues(alpha: 0.5),
                   ),
                   border: InputBorder.none,
                   prefixIcon: const Icon(Icons.search, color: Color(0xFF578FCA)),
@@ -205,8 +210,8 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
     final hasFilter = _selectedCategories.isNotEmpty;
     final label = hasFilter
         ? _selectedCategories
-            .map((c) => c[0].toUpperCase() + c.substring(1))
-            .join(', ')
+        .map((c) => c[0].toUpperCase() + c.substring(1))
+        .join(', ')
         : 'All Categories';
 
     return Padding(
@@ -219,20 +224,20 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
                 onTap: () => _showCategoryDropdown(ctx),
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: hasFilter
-                        ? const Color(0xFF3674B5).withOpacity(0.08)
+                        ? const Color(0xFF3674B5).withValues(alpha: 0.08)
                         : Colors.white,
                     border: Border.all(
                       color: hasFilter
                           ? const Color(0xFF3674B5)
-                          : const Color(0xFF578FCA).withOpacity(0.25),
+                          : const Color(0xFF578FCA).withValues(alpha: 0.25),
                     ),
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF578FCA).withOpacity(0.06),
+                        color: const Color(0xFF578FCA).withValues(alpha: 0.06),
                         blurRadius: 8,
                         offset: const Offset(0, 3),
                       ),
@@ -288,7 +293,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                      color: const Color(0xFF578FCA).withOpacity(0.25)),
+                      color: const Color(0xFF578FCA).withValues(alpha: 0.25)),
                 ),
                 child: const Icon(Icons.close_rounded,
                     size: 18, color: Color(0xFF578FCA)),
@@ -325,7 +330,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.08),
+            color: const Color(0xFF578FCA).withValues(alpha: 0.08),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -375,7 +380,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFA1E3F9).withOpacity(0.2),
+                        color: const Color(0xFFA1E3F9).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -405,7 +410,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
                           '${club['memberCount'] ?? 0} members',
                           style: TextStyle(
                             fontSize: 13,
-                            color: const Color(0xFF578FCA).withOpacity(0.8),
+                            color: const Color(0xFF578FCA).withValues(alpha: 0.8),
                           ),
                         ),
                       ],
@@ -415,7 +420,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
                       club['description'] ?? 'No description available',
                       style: TextStyle(
                         fontSize: 13,
-                        color: const Color(0xFF578FCA).withOpacity(0.7),
+                        color: const Color(0xFF578FCA).withValues(alpha: 0.7),
                         height: 1.3,
                       ),
                       maxLines: 2,
@@ -427,7 +432,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
               Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 20,
-                color: const Color(0xFF578FCA).withOpacity(0.5),
+                color: const Color(0xFF578FCA).withValues(alpha: 0.5),
               ),
             ],
           ),
@@ -445,11 +450,11 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: const Color(0xFFA1E3F9).withOpacity(0.2),
+              color: const Color(0xFFA1E3F9).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.groups_outlined,
-                size: 60, color: const Color(0xFF578FCA).withOpacity(0.5)),
+                size: 60, color: const Color(0xFF578FCA).withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 24),
           const Text(
@@ -463,7 +468,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
           Text(
             'Try adjusting your filters',
             style:
-                TextStyle(fontSize: 14, color: const Color(0xFF578FCA).withOpacity(0.7)),
+            TextStyle(fontSize: 14, color: const Color(0xFF578FCA).withValues(alpha: 0.7)),
           ),
         ],
       ),
@@ -554,7 +559,7 @@ class _MultiSelectMenuState extends State<_MultiSelectMenu> {
               },
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                 child: Row(
                   children: [
                     Text(cat['icon']!,
@@ -579,13 +584,13 @@ class _MultiSelectMenuState extends State<_MultiSelectMenu> {
                       duration: const Duration(milliseconds: 150),
                       child: isSelected
                           ? const Icon(Icons.check_circle_rounded,
-                              key: ValueKey(true),
-                              size: 20,
-                              color: Color(0xFF3674B5))
+                          key: ValueKey(true),
+                          size: 20,
+                          color: Color(0xFF3674B5))
                           : const Icon(Icons.circle_outlined,
-                              key: ValueKey(false),
-                              size: 20,
-                              color: Color(0xFFCCDDEE)),
+                          key: ValueKey(false),
+                          size: 20,
+                          color: Color(0xFFCCDDEE)),
                     ),
                   ],
                 ),

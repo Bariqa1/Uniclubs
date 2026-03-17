@@ -12,8 +12,7 @@ class MembersScreen extends StatefulWidget {
   State<MembersScreen> createState() => _MembersScreenState();
 }
 
-class _MembersScreenState extends State<MembersScreen>
-    with SingleTickerProviderStateMixin {
+class _MembersScreenState extends State<MembersScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final FirestoreService _firestoreService = FirestoreService();
 
@@ -23,8 +22,7 @@ class _MembersScreenState extends State<MembersScreen>
   bool _isLoadingMembers = true;
 
   String get clubId => widget.clubDoc.id;
-  String get clubName =>
-      (widget.clubDoc.data() as Map<String, dynamic>)['name'] ?? 'Club';
+  String get clubName => (widget.clubDoc.data() as Map<String, dynamic>)['name'] ?? 'Club';
 
   @override
   void initState() {
@@ -43,18 +41,27 @@ class _MembersScreenState extends State<MembersScreen>
   Future<void> _loadPendingRequests() async {
     setState(() => _isLoadingPending = true);
     final requests = await _firestoreService.getPendingRequests(clubId);
-    if (mounted) setState(() { _pendingRequests = requests; _isLoadingPending = false; });
+    if (mounted) {
+      setState(() {
+        _pendingRequests = requests;
+        _isLoadingPending = false;
+      });
+    }
   }
 
   Future<void> _loadMembers() async {
     setState(() => _isLoadingMembers = true);
     final members = await _firestoreService.getClubMembers(clubId);
-    if (mounted) setState(() { _members = members; _isLoadingMembers = false; });
+    if (mounted) {
+      setState(() {
+        _members = members;
+        _isLoadingMembers = false;
+      });
+    }
   }
 
   Future<void> _handleApprove(Map<String, dynamic> request) async {
-    final result = await _firestoreService.approveMembership(
-      request['membershipId'], clubId);
+    final result = await _firestoreService.approveMembership(request['membershipId'], clubId);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -67,7 +74,7 @@ class _MembersScreenState extends State<MembersScreen>
     if (result['success']) {
       setState(() => _pendingRequests.remove(request));
       _loadMembers();
-      // Notify the student their membership was approved
+
       NotificationService().createLocalNotification(
         userId: request['userId'],
         type: 'membership_approved',
@@ -82,8 +89,7 @@ class _MembersScreenState extends State<MembersScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Reject Request',
-            style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
+        title: const Text('Reject Request', style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
         content: Text('Reject ${request['userName']}\'s membership request?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -119,8 +125,7 @@ class _MembersScreenState extends State<MembersScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Remove Member',
-            style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
+        title: const Text('Remove Member', style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
         content: Text('Remove ${member['userName']} from $clubName?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -138,8 +143,7 @@ class _MembersScreenState extends State<MembersScreen>
 
     if (confirm != true) return;
 
-    final result =
-        await _firestoreService.removeMember(member['membershipId'], clubId);
+    final result = await _firestoreService.removeMember(member['membershipId'], clubId);
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -156,109 +160,49 @@ class _MembersScreenState extends State<MembersScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F7FB),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildTabBar(),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
+      // 🚀 نفس ستايل الـ AppBar في صفحة EventPage بالضبط
+      appBar: AppBar(
+        title: const Text("Members Management", style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF3674B5)),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xFF3674B5),
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: const Color(0xFF3674B5),
+          tabs: [
+            Tab(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildPendingTab(),
-                  _buildMembersTab(),
+                  const Text("Requests"),
+                  if (_pendingRequests.isNotEmpty) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_pendingRequests.length}',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
+            Tab(text: "Members (${_members.length})"),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-      child: Row(
-        children: [
-          const Text(
-            'Members',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF3674B5),
-            ),
-          ),
-          const Spacer(),
-          if (_pendingRequests.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.orange,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${_pendingRequests.length} pending',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: TabBar(
+      body: TabBarView(
         controller: _tabController,
-        indicator: BoxDecoration(
-          color: const Color(0xFF3674B5),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        labelColor: Colors.white,
-        unselectedLabelColor: const Color(0xFF578FCA),
-        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        tabs: [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Requests'),
-                if (_pendingRequests.isNotEmpty) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${_pendingRequests.length}',
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Tab(text: 'Members (${_members.length})'),
+        children: [
+          _buildPendingTab(),
+          _buildMembersTab(),
         ],
       ),
     );
@@ -300,7 +244,7 @@ class _MembersScreenState extends State<MembersScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.07),
+            color: const Color(0xFF578FCA).withValues(alpha: 0.07),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -337,7 +281,7 @@ class _MembersScreenState extends State<MembersScreen>
                   Text(email,
                       style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF578FCA).withOpacity(0.7))),
+                          color: const Color(0xFF578FCA).withValues(alpha: 0.7))),
               ],
             ),
           ),
@@ -349,7 +293,7 @@ class _MembersScreenState extends State<MembersScreen>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.close, color: Colors.red, size: 18),
@@ -361,7 +305,7 @@ class _MembersScreenState extends State<MembersScreen>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
+                    color: Colors.green.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.check, color: Colors.green, size: 18),
@@ -410,7 +354,7 @@ class _MembersScreenState extends State<MembersScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.07),
+            color: const Color(0xFF578FCA).withValues(alpha: 0.07),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -447,14 +391,14 @@ class _MembersScreenState extends State<MembersScreen>
                   Text(email,
                       style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF578FCA).withOpacity(0.7))),
+                          color: const Color(0xFF578FCA).withValues(alpha: 0.7))),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.green.withOpacity(0.1),
+              color: Colors.green.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Text('Member',
@@ -499,10 +443,10 @@ class _MembersScreenState extends State<MembersScreen>
             width: 100,
             height: 100,
             decoration: BoxDecoration(
-              color: const Color(0xFFA1E3F9).withOpacity(0.2),
+              color: const Color(0xFFA1E3F9).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 50, color: const Color(0xFF578FCA).withOpacity(0.5)),
+            child: Icon(icon, size: 50, color: const Color(0xFF578FCA).withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 20),
           Text(title,
@@ -514,7 +458,7 @@ class _MembersScreenState extends State<MembersScreen>
           Text(subtitle,
               style: TextStyle(
                   fontSize: 13,
-                  color: const Color(0xFF578FCA).withOpacity(0.7))),
+                  color: const Color(0xFF578FCA).withValues(alpha: 0.7))),
         ],
       ),
     );

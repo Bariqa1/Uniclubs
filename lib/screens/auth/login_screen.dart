@@ -47,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (userRole != _selectedRole) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('You are not authorized as ${_selectedRole}. Your role is: $userRole'),
+            content: Text('You are not authorized as $_selectedRole. Your role is: $userRole'),
             backgroundColor: Colors.red,
           ),
         );
@@ -61,10 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (userRole == 'club_leader') {
         Navigator.pushReplacementNamed(context, '/leader-dashboard');
       } else if (userRole == 'admin') {
-        // TODO: Navigate to admin dashboard
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Admin dashboard coming soon!')),
-        );
+            Navigator.pushReplacementNamed(context, '/admin-dashboard');
       }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(

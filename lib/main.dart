@@ -9,6 +9,7 @@ import 'screens/auth/register_screen.dart';
 import 'screens/student/student_dashboard.dart';
 import 'screens/leader/leader_main_shell.dart';
 import 'services/notification_service.dart';
+import 'screens/admin/admin_dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -40,6 +41,7 @@ class UniClubsApp extends StatelessWidget {
         '/register': (context) => const RegistrationScreen(),
         '/student-dashboard': (context) => const StudentDashboard(),
         '/leader-dashboard': (context) => const ClubLeaderMainShell(),
+        '/admin-dashboard': (context) => const AdminDashboardScreen(),
       },
     );
   }
@@ -65,6 +67,7 @@ class AuthGate extends StatelessWidget {
       final role = doc.data()?['role'] ?? 'student';
       if (role == 'student') return const StudentDashboard();
       if (role == 'club_leader') return const ClubLeaderMainShell();
+      if (role == 'admin') return const AdminDashboardScreen();
     } catch (_) {}
 
     return const WelcomeScreen();

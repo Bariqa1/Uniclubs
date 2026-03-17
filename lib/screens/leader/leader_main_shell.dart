@@ -5,6 +5,7 @@ import 'club_leader_dashboard.dart';
 import 'club_profile_page.dart';
 import 'event_page.dart';
 import 'members_screen.dart';
+import '../auth/login_screen.dart';
 
 class ClubLeaderMainShell extends StatefulWidget {
   const ClubLeaderMainShell({super.key});
@@ -15,41 +16,92 @@ class ClubLeaderMainShell extends StatefulWidget {
 
 class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
   int _selectedIndex = 0;
-  // Get UID once
+  String? _selectedClubId;
   final String uid = FirebaseAuth.instance.currentUser!.uid;
+
+  Future<void> _handleLogout() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      // Listening for the club assigned to this leader
       stream: FirebaseFirestore.instance
           .collection('clubs')
           .where('leaderId', isEqualTo: uid)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF3674B5))));
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Scaffold(body: Center(child: Text("No club found for this leader")));
+        final myClubs = snapshot.data?.docs ?? [];
+
+        if (myClubs.isEmpty) {
+          return const Scaffold(
+            body: ClubLeaderDashboard(activeClubId: null),
+          );
         }
 
-        // This is the specific club document for this leader
-        final clubDoc = snapshot.data!.docs.first;
+        if (_selectedClubId == null) {
+          if (myClubs.length == 1) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _selectedClubId = myClubs.first.id);
+            });
+            return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF3674B5))));
+          } else {
+            return _buildClubSelectionScreen(myClubs);
+          }
+        }
 
-        // UPDATED: Pass clubDoc to the Profile Page
-        final List<Widget> _pages = [
-          ClubLeaderDashboard(clubDoc: clubDoc),
-          EventPage(clubId: clubDoc.id),
-          MembersScreen(clubDoc: clubDoc),
-          ClubProfilePage(clubDoc: clubDoc),
+        final activeClubDoc = myClubs.cast<QueryDocumentSnapshot?>().firstWhere(
+              (doc) => doc?.id == _selectedClubId,
+          orElse: () => null,
+        );
+
+        if (activeClubDoc == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedClubId = null);
+          });
+          return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF3674B5))));
+        }
+
+        final List<Widget> pages = [
+          ClubLeaderDashboard(activeClubId: _selectedClubId),
+          EventPage(clubId: _selectedClubId!),
+          MembersScreen(clubDoc: activeClubDoc),
+          ClubProfilePage(clubDoc: activeClubDoc, userRole: 'leader'),
         ];
 
         return Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Active Club:", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(activeClubDoc['name'] ?? 'Club', style: const TextStyle(color: Color(0xFF3674B5), fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            actions: [
+              if (myClubs.length > 1)
+                TextButton.icon(
+                  onPressed: () => setState(() => _selectedClubId = null),
+                  icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF3674B5), size: 18),
+                  label: const Text("Switch", style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
           body: IndexedStack(
-              index: _selectedIndex,
-              children: _pages
+            index: _selectedIndex,
+            children: pages,
           ),
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _selectedIndex,
@@ -61,11 +113,100 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
               BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Stats'),
               BottomNavigationBarItem(icon: Icon(Icons.event_note_rounded), label: 'Events'),
               BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: 'Members'),
-              BottomNavigationBarItem(icon: Icon(Icons.account_balance_rounded), label: 'Club Profile'),
+              BottomNavigationBarItem(icon: Icon(Icons.account_balance_rounded), label: 'Profile'),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildClubSelectionScreen(List<QueryDocumentSnapshot> clubs) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F7FB),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text("Select Club to Manage", style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _handleLogout,
+            icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+            tooltip: "Logout",
+          ),
+        ],
+      ),
+      body: ListView.builder(
+        padding: const EdgeInsets.all(24),
+        itemCount: clubs.length,
+        itemBuilder: (context, index) {
+          final data = clubs[index].data() as Map<String, dynamic>;
+          return GestureDetector(
+            onTap: () => setState(() {
+              _selectedClubId = clubs[index].id;
+              _selectedIndex = 0;
+            }),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(color: Color(0xFFE8F4FD), shape: BoxShape.circle),
+                    child: const Icon(Icons.star_rounded, color: Color(0xFF3674B5), size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(data['name'] ?? 'Club Name', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                        Text((data['category'] ?? 'General').toString().toUpperCase(), style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Color(0xFF3674B5)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNoClubPlaceholder() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F7FB),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_person_rounded, size: 80, color: const Color(0xFF3674B5).withValues(alpha: 0.2)),
+            const SizedBox(height: 16),
+            const Text(
+              "Access Restricted",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
+            ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 40),
+              child: Text(
+                "Please request to lead a club from the Stats tab to unlock these features.",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

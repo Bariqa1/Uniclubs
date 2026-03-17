@@ -75,7 +75,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF578FCA).withOpacity(0.1),
+                    color: const Color(0xFF578FCA).withValues(alpha: 0.1),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -135,7 +135,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF578FCA).withOpacity(0.08),
+              color: const Color(0xFF578FCA).withValues(alpha: 0.08),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -177,7 +177,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
                     (club['category'] ?? 'general').toUpperCase(),
                     style: TextStyle(
                       fontSize: 12,
-                      color: const Color(0xFF578FCA).withOpacity(0.7),
+                      color: const Color(0xFF578FCA).withValues(alpha: 0.7),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -190,7 +190,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
                         '${club['memberCount'] ?? 0} members',
                         style: TextStyle(
                           fontSize: 12,
-                          color: const Color(0xFF578FCA).withOpacity(0.7),
+                          color: const Color(0xFF578FCA).withValues(alpha: 0.7),
                         ),
                       ),
                     ],
@@ -201,7 +201,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
+                color: Colors.green.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
@@ -228,13 +228,13 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
             width: 120,
             height: 120,
             decoration: BoxDecoration(
-              color: const Color(0xFFA1E3F9).withOpacity(0.2),
+              color: const Color(0xFFA1E3F9).withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.groups_outlined,
               size: 60,
-              color: const Color(0xFF578FCA).withOpacity(0.5),
+              color: const Color(0xFF578FCA).withValues(alpha: 0.5),
             ),
           ),
           const SizedBox(height: 24),
@@ -251,7 +251,7 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
             'Join clubs from the Clubs tab',
             style: TextStyle(
               fontSize: 14,
-              color: const Color(0xFF578FCA).withOpacity(0.7),
+              color: const Color(0xFF578FCA).withValues(alpha: 0.7),
             ),
           ),
         ],

@@ -183,7 +183,7 @@ class NotificationService {
           .get();
 
       for (final reg in registeredSnap.docs) {
-        final regData = reg.data() as Map<String, dynamic>;
+        final regData = reg.data();
         final eventId = regData['eventId'] as String?;
         if (eventId == null) continue;
 
@@ -224,7 +224,7 @@ class NotificationService {
           .get();
 
       for (final reg in attendedSnap.docs) {
-        final regData = reg.data() as Map<String, dynamic>;
+        final regData = reg.data();
         final eventId = regData['eventId'] as String?;
         if (eventId == null) continue;
 
