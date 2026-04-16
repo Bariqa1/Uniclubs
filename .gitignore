@@ -50,6 +50,16 @@ app.*.map.json
 
 # must ignore
 serviceAccountKey.json
+backend/serviceAccountKey.json
+
+# Python backend
+backend/.env
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/ml_models/
+backend/.pytest_cache/
 
 # Firebase CLI
 .firebase/
@@ -57,7 +67,6 @@ firebase-debug.log
 
 # Environment files
 .env
-.env.*
 
 Phase1_Final_Copy.pdf
 CLAUDE.md

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/api_service.dart';
 import '../../models/event_model.dart';
 import 'events_discovery_screen.dart';
 import 'clubs_discovery_screen.dart';
@@ -136,9 +137,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService _firestoreService = FirestoreService();
+  final ApiService _apiService = ApiService();
   List<Event> _recommendedEvents = [];
   List<Event> _upcomingEvents = [];
   bool _isLoading = true;
+  bool _isLoadingRecommendations = false;
 
   @override
   void initState() {
@@ -156,20 +159,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       // Fetch upcoming events from Firestore
-      List<Map<String, dynamic>> eventsData = 
+      List<Map<String, dynamic>> eventsData =
           await _firestoreService.getUpcomingEvents(limit: 10);
-
-      // Convert to Event objects
       List<Event> events = eventsData.map((data) => Event.fromFirestore(data)).toList();
 
       setState(() {
-        _recommendedEvents = []; // AI recommendations not yet implemented
         _upcomingEvents = events;
         _isLoading = false;
       });
     } catch (e) {
-      print('Error loading events: $e');
       setState(() => _isLoading = false);
+    }
+
+    // Load AI recommendations from backend (non-blocking)
+    _loadRecommendations();
+  }
+
+  Future<void> _loadRecommendations() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    setState(() => _isLoadingRecommendations = true);
+
+    final data = await _apiService.getRecommendations(uid);
+    final recommended = data.map((e) => Event.fromApi(e)).toList();
+
+    if (mounted) {
+      setState(() {
+        _recommendedEvents = recommended;
+        _isLoadingRecommendations = false;
+      });
     }
   }
 
@@ -333,22 +352,26 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 200,
-          child: _recommendedEvents.isEmpty
+          height: 220,
+          child: _isLoadingRecommendations
               ? const Center(
-                  child: Text(
-                    'No recommendations yet',
-                    style: TextStyle(color: Color(0xFF578FCA)),
-                  ),
+                  child: CircularProgressIndicator(color: Color(0xFF3674B5)),
                 )
-              : ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: _recommendedEvents.length,
-                  itemBuilder: (context, index) {
-                    return _buildRecommendedEventCard(_recommendedEvents[index]);
-                  },
-                ),
+              : _recommendedEvents.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No recommendations yet',
+                        style: TextStyle(color: Color(0xFF578FCA)),
+                      ),
+                    )
+                  : ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      itemCount: _recommendedEvents.length,
+                      itemBuilder: (context, index) {
+                        return _buildRecommendedEventCard(_recommendedEvents[index]);
+                      },
+                    ),
         ),
       ],
     );

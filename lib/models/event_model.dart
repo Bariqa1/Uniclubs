@@ -50,6 +50,41 @@ class Event {
     );
   }
 
+  /// Create Event from backend API JSON response (dates are ISO strings)
+  factory Event.fromApi(Map<String, dynamic> data) {
+    DateTime parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+      if (value is Timestamp) return value.toDate();
+      // Firestore admin SDK may send {"_seconds": ..., "_nanoseconds": ...}
+      if (value is Map) {
+        final seconds = value['_seconds'] ?? value['seconds'];
+        if (seconds != null) {
+          return DateTime.fromMillisecondsSinceEpoch((seconds as int) * 1000, isUtc: true).toLocal();
+        }
+      }
+      return DateTime.now();
+    }
+
+    return Event(
+      id: data['id'] ?? '',
+      title: data['title'] ?? 'Untitled Event',
+      description: data['description'] ?? '',
+      clubId: data['clubId'] ?? '',
+      date: parseDate(data['date']),
+      location: data['location'] ?? '',
+      category: data['category'] ?? 'general',
+      capacity: data['capacity'] ?? 0,
+      currentRegistrations: data['currentRegistrations'] ?? 0,
+      poster: data['poster'],
+      tags: List<String>.from(data['tags'] ?? []),
+      status: data['status'] ?? 'upcoming',
+      registrationDeadline: data['registrationDeadline'] != null
+          ? parseDate(data['registrationDeadline'])
+          : null,
+    );
+  }
+
   /// Convert Event to Map for Firestore
   Map<String, dynamic> toMap() {
     return {
