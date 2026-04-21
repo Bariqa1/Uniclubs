@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 import google.generativeai as genai
 from app.chat_service import *
+import os
 
 load_dotenv()
 
@@ -35,7 +36,7 @@ app.include_router(recommendations.router, prefix="/api")
 def root():
     return {"status": "UniClubs API is running"}
 
-genai.configure(api_key= "AIzaSyCXvBClq2CkYnmvpk3POSVotnjHYbbnSY4")
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-flash-latest")
 
 class Message(BaseModel):
