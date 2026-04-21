@@ -2,6 +2,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from pydantic import BaseModel
+import google.generativeai as genai
+from app.chat_service import *
 
 load_dotenv()
 
@@ -31,3 +34,44 @@ app.include_router(recommendations.router, prefix="/api")
 @app.get("/")
 def root():
     return {"status": "UniClubs API is running"}
+
+genai.configure(api_key= "AIzaSyCXvBClq2CkYnmvpk3POSVotnjHYbbnSY4")
+model = genai.GenerativeModel("gemini-flash-latest")
+
+class Message(BaseModel):
+    message: str
+    user_id: str
+
+
+@app.post("/chat")
+def chat(data: Message):
+    try:
+        history = get_history(data.user_id)
+        prompt = f"""
+        You are UniClubs Assistant.
+
+        Help student with:
+        - finding clubs
+        - event registration
+        - app navigation
+        - university activities
+
+        Previous conversation: {history}
+        User question: {data.message}"""
+
+
+        response = model.generate_content(prompt)
+        ai_reply =response.text or "No response"
+
+        save_message(data.user_id, "user", data.message)
+        save_message(data.user_id, "ai", ai_reply)
+
+
+        return {"response": ai_reply}
+    except Exception as e:
+        return {"response": str(e)}
+
+@app.get("/messages/{user_id}")
+def get_messages(user_id: str):
+    history = get_history(user_id)
+    return {"history": history}

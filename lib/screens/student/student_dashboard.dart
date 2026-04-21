@@ -12,6 +12,8 @@ import 'event_detail_screen.dart';
 import 'my_clubs_screen.dart';
 import 'my_registrations_screen.dart';
 import 'notifications_screen.dart';
+import 'package:uniclubs/screens/assistant/ai_assistant_screen.dart';
+import 'package:dash_chat_2/dash_chat_2.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -76,6 +78,36 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
         ),
       ),
+
+      floatingActionButton : Padding(
+        padding:const EdgeInsets.only(bottom: 0, right:0),
+        child: IconButton(
+
+          onPressed: () {Navigator.push(context,
+            MaterialPageRoute(builder: (context) => AiAssistantScreen(
+              currentUser: ChatUser(
+                id: FirebaseAuth.instance.currentUser!.uid,
+                firstName: FirebaseAuth.instance.currentUser!.displayName?? "User",
+              ),
+            ),),);},
+          icon: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Color(0xFF578FCA),
+              borderRadius: BorderRadius.circular(40),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF578FCA).withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.message_outlined, color: Colors.white,size: 65,),
+          ),
+        ),
+      ),
+
     );
   }
 

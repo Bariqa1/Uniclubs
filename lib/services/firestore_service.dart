@@ -376,7 +376,7 @@ class FirestoreService {
 
       final List<Map<String, dynamic>> result = [];
       for (final doc in snap.docs) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final status = data['status'] ?? 'registered';
         if (status == 'cancelled') continue; // skip cancelled client-side
         final userData = await getUserProfile(data['userId'] ?? '');
