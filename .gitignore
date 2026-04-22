@@ -58,7 +58,6 @@ backend/venv/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/**/*.pyc
-backend/ml_models/
 backend/.pytest_cache/
 
 # Firebase CLI

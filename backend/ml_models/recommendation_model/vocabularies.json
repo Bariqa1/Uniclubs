@@ -1,0 +1,41 @@
+{
+  "categories": [
+    "tech",
+    "sports",
+    "arts",
+    "academic",
+    "social"
+  ],
+  "all_tags": [
+    "workshop",
+    "seminar",
+    "competition",
+    "social",
+    "networking",
+    "guest_speaker"
+  ],
+  "interests": [
+    "AI",
+    "Mobile Dev",
+    "Coding",
+    "Sports",
+    "Design",
+    "Art",
+    "Photography",
+    "Music",
+    "Academic"
+  ],
+  "interest_to_category": {
+    "AI": "tech",
+    "Mobile Dev": "tech",
+    "Coding": "tech",
+    "Sports": "sports",
+    "Design": "arts",
+    "Art": "arts",
+    "Photography": "arts",
+    "Music": "arts",
+    "Academic": "academic"
+  },
+  "user_content_dim": 12,
+  "event_content_dim": 13
+}
