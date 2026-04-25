@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/ai_service.dart';
 import '../auth/login_screen.dart';
 
 class ClubLeaderDashboard extends StatefulWidget {
@@ -12,6 +13,10 @@ class ClubLeaderDashboard extends StatefulWidget {
 }
 
 class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
+  DocumentSnapshot? _selectedEvent;
+  double? _prediction;
+  bool _isPredicting = false;
+
   Future<void> _handleLogout() async {
     try {
       await FirebaseAuth.instance.signOut();
@@ -34,21 +39,79 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
         FirebaseFirestore.instance.collection('memberships').where('clubId', isEqualTo: clubId).where('status', isEqualTo: 'approved').count().get(),
         FirebaseFirestore.instance.collection('events').where('clubId', isEqualTo: clubId).count().get(),
         FirebaseFirestore.instance.collection('memberships').where('clubId', isEqualTo: clubId).where('status', isEqualTo: 'pending').count().get(),
-        FirebaseFirestore.instance.collection('events').where('clubId', isEqualTo: clubId).where('date', isGreaterThan: Timestamp.now()).orderBy('date').limit(1).get(),
+        FirebaseFirestore.instance.collection('events').where('clubId', isEqualTo: clubId).orderBy('date', descending: true).get(),
         FirebaseFirestore.instance.collection('users').doc(userId).get(),
       ]);
 
+      final allEvents = (results[3] as QuerySnapshot).docs;
       final userSnap = results[4] as DocumentSnapshot;
 
       return {
         'members': (results[0] as AggregateQuerySnapshot).count ?? 0,
-        'events': (results[1] as AggregateQuerySnapshot).count ?? 0,
+        'eventsCount': (results[1] as AggregateQuerySnapshot).count ?? 0,
         'pending': (results[2] as AggregateQuerySnapshot).count ?? 0,
-        'upcomingEvent': (results[3] as QuerySnapshot).docs.firstOrNull?.data(),
+        'allEvents': allEvents,
         'leaderName': userSnap.exists ? (userSnap.data() as Map<String, dynamic>)['name'] ?? "Leader" : "Leader",
       };
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<void> _fetchPrediction(DocumentSnapshot event, int memberCount) async {
+    setState(() {
+      _isPredicting = true;
+      _selectedEvent = event;
+    });
+
+    final data = event.data() as Map<String, dynamic>;
+    final date = (data['date'] as Timestamp).toDate();
+
+    final tags = (data['tags'] as List? ?? []);
+    final capacity = (data['capacity'] as num? ?? 50).toInt();
+    final category = data['category'] ?? 'general';
+
+    final categoryMap = {
+      'arts':     {'category_Arts': 1},
+      'academic': {'category_Education': 1},
+      'sports':   {'category_Sports': 1},
+      'tech':     {'category_Technology': 1},
+      'social':   {'category_Community': 1},
+    };
+
+    final features = <String, dynamic>{
+      "capacity": capacity,
+      "tags_count": tags.length,
+      "interested_users_count": memberCount,
+      "past_avg_attendance": (capacity * 0.6).roundToDouble(),
+      "interest_ratio": memberCount > 0 ? (capacity / memberCount).clamp(0.0, 1.0) : 0.5,
+      "category_Arts": 0,
+      "category_Business": 0,
+      "category_Community": 0,
+      "category_Education": 0,
+      "category_Health": 0,
+      "category_Medical": 0,
+      "category_Science": 0,
+      "category_Sports": 0,
+      "category_Technology": 0,
+      ...?categoryMap[category],
+    };
+
+    try {
+      final result = await AiService.predictAttendance(features);
+      if (mounted) {
+        setState(() {
+          _prediction = result;
+          _isPredicting = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isPredicting = false;
+          _prediction = null;
+        });
+      }
     }
   }
 
@@ -117,7 +180,7 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      initialValue: category,
+                      value: category,
                       decoration: InputDecoration(
                         labelText: 'Category',
                         filled: true,
@@ -217,7 +280,6 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
 
         final leaderName = userSnapshot.data?['name'] ?? 'Leader';
 
-        // 🚀 إذا الـ ID اللي وصلنا فاضي، نعرض شاشة اكتشاف الأندية
         if (widget.activeClubId == null) {
           return Scaffold(
             backgroundColor: const Color(0xFFF3F7FB),
@@ -225,7 +287,6 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
           );
         }
 
-        // 🚀 إذا وصلنا ID، نعرض إحصائيات هذا النادي تحديداً
         return Scaffold(
           backgroundColor: const Color(0xFFF3F7FB),
           body: FutureBuilder<Map<String, dynamic>>(
@@ -336,7 +397,25 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
   }
 
   Widget _buildDashboardUI(Map<String, dynamic> data) {
-    final upcoming = data['upcomingEvent'] as Map<String, dynamic>?;
+    final List<DocumentSnapshot> allEvents = data['allEvents'];
+    final int members = data['members'];
+
+    // Default next event if none selected
+    if (_selectedEvent == null && allEvents.isNotEmpty) {
+      final now = DateTime.now();
+      try {
+        _selectedEvent = allEvents.where((doc) => (doc['date'] as Timestamp).toDate().isAfter(now)).last;
+      } catch (_) {
+        _selectedEvent = allEvents.first;
+      }
+      // Initialize prediction for the default event
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fetchPrediction(_selectedEvent!, members);
+      });
+    }
+
+    final upcomingData = _selectedEvent?.data() as Map<String, dynamic>?;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -352,19 +431,102 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
             childAspectRatio: 1.2,
             children: [
               _buildStatCard("${data['members']}", "Total Members"),
-              _buildStatCard("${data['events']}", "Active events"),
+              _buildStatCard("${data['eventsCount']}", "Active events"),
               _buildStatCard("${data['pending']}", "Pending Requests"),
-              _buildUpcomingCard(upcoming),
+              _buildUpcomingCard(upcomingData),
             ],
           ),
           const SizedBox(height: 40),
           const Text("Attendance Performance", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF3674B5))),
           const SizedBox(height: 12),
+          _buildPredictionSection(allEvents, members),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPredictionSection(List<DocumentSnapshot> allEvents, int memberCount) {
+    if (allEvents.isEmpty) {
+      return Container(
+        height: 180, width: double.infinity,
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black.withValues(alpha: 0.05))),
+        child: const Center(child: Text("No events available for prediction.", style: TextStyle(color: Colors.grey, fontSize: 12))),
+      );
+    }
+
+    final eventData = _selectedEvent?.data() as Map<String, dynamic>?;
+    final isUpcoming = (eventData?['date'] as Timestamp?)?.toDate().isAfter(DateTime.now()) ?? true;
+    final actualAttendance = eventData?['actualAttendance'] ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))],
+        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+      ),
+      child: Column(
+        children: [
           Container(
-            height: 180, width: double.infinity,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.black.withValues(alpha: 0.05))),
-            child: const Center(child: Text("Overview Data Loading...", style: TextStyle(color: Colors.grey, fontSize: 12))),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F7FB),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: _selectedEvent?.id,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF3674B5)),
+                items: allEvents.map((event) {
+                  final d = event.data() as Map<String, dynamic>;
+                  return DropdownMenuItem<String>(
+                    value: event.id,
+                    child: Text(d['title'] ?? 'Untitled Event', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  );
+                }).toList(),
+                onChanged: (id) {
+                  if (id != null) {
+                    final event = allEvents.firstWhere((e) => e.id == id);
+                    _fetchPrediction(event, memberCount);
+                  }
+                },
+              ),
+            ),
           ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    const Text("Prediction", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    _isPredicting
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF3674B5)))
+                        : Text("${_prediction?.toStringAsFixed(0) ?? '--'}",
+                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF3674B5))),
+                    const Text("Members", style: TextStyle(color: Color(0xFF7BA1C7), fontSize: 10)),
+                  ],
+                ),
+              ),
+              if (!isUpcoming) ...[
+                Container(height: 50, width: 1, color: Colors.grey.withValues(alpha: 0.2)),
+                Expanded(
+                  child: Column(
+                    children: [
+                      const Text("Actual", style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text("$actualAttendance",
+                          style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
+                      const Text("Members", style: TextStyle(color: Color(0xFF7BA1C7), fontSize: 10)),
+                    ],
+                  ),
+                ),
+              ]
+            ],
+          )
         ],
       ),
     );
