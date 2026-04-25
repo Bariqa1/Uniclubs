@@ -67,13 +67,34 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
     final data = event.data() as Map<String, dynamic>;
     final date = (data['date'] as Timestamp).toDate();
 
-    // Mapping features to match the ML model's expected input schema
-    // Update these keys based on what your model was trained on (see features.pkl)
-    final features = {
-      "member_count": memberCount,
-      "category": data['category'] ?? 'general',
-      "hour": date.hour,
-      "day_of_week": date.weekday,
+    final tags = (data['tags'] as List? ?? []);
+    final capacity = (data['capacity'] as num? ?? 50).toInt();
+    final category = data['category'] ?? 'general';
+
+    final categoryMap = {
+      'arts':     {'category_Arts': 1},
+      'academic': {'category_Education': 1},
+      'sports':   {'category_Sports': 1},
+      'tech':     {'category_Technology': 1},
+      'social':   {'category_Community': 1},
+    };
+
+    final features = <String, dynamic>{
+      "capacity": capacity,
+      "tags_count": tags.length,
+      "interested_users_count": memberCount,
+      "past_avg_attendance": (capacity * 0.6).roundToDouble(),
+      "interest_ratio": memberCount > 0 ? (capacity / memberCount).clamp(0.0, 1.0) : 0.5,
+      "category_Arts": 0,
+      "category_Business": 0,
+      "category_Community": 0,
+      "category_Education": 0,
+      "category_Health": 0,
+      "category_Medical": 0,
+      "category_Science": 0,
+      "category_Sports": 0,
+      "category_Technology": 0,
+      ...?categoryMap[category],
     };
 
     try {
