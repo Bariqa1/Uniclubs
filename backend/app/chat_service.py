@@ -1,6 +1,7 @@
 from app.utils.firebase_config import get_db
 from datetime import datetime
-
+from google.cloud.firestore_v1.base_query import FieldFilter
+from google.cloud.firestore_v1 import Query
 
 def save_message(user_id, role, text):
     db = get_db()
@@ -18,8 +19,9 @@ def get_history(user_id):
     messages_ref = db.collection("users") \
                      .document(user_id) \
                      .collection("messages") \
-                     .order_by("timestamp") \
-                     .limit_to_last(20)
+                     .order_by("timestamp", direction=Query.DESCENDING) \
+                     .limit(20)
+
     docs = messages_ref.get()
 
     history = []
@@ -27,10 +29,10 @@ def get_history(user_id):
         data = doc.to_dict()
         ts = data.get("timestamp")
         history.append({
-        "text": data["text"],
-        "userId": user_id if data["role"] == "user" else "0",
-        "userName": "AI Assistant" if data["role"] =="ai" else "User",
-        "createdAt": ts.isoformat() if ts else ""
+            "text": data["text"],
+            "userId": user_id if data["role"] == "user" else "0",
+            "userName": "AI Assistant" if data["role"] =="ai" else "User",
+            "createdAt": ts.isoformat() if ts else ""
         })
 
     return history

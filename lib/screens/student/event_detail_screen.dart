@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import '../../models/event_model.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
+import '../../utils/constants.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final Event event;
@@ -18,21 +22,30 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   bool _isRegistering = false;
   bool _isCancelling = false;
   bool _isRegistered = false;
+  bool _hasFeedback = false;
 
   @override
   void initState() {
     super.initState();
-    _checkRegistrationStatus();
+    _checkStatus();
   }
 
-  Future<void> _checkRegistrationStatus() async {
+  Future<void> _checkStatus() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
       final registrations = await _firestoreService.getUserRegistrations(user.uid);
       final isRegistered = registrations.any((r) => r['id'] == widget.event.id);
-      if (mounted) setState(() => _isRegistered = isRegistered);
+
+      final hasFeedback = await _firestoreService.hasSubmittedFeedback(user.uid, widget.event.id);
+
+      if (mounted) {
+        setState(() {
+          _isRegistered = isRegistered;
+          _hasFeedback = hasFeedback;
+        });
+      }
     } catch (_) {}
   }
 
@@ -118,7 +131,144 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       ),
     );
 
-    if (result['success']) setState(() => _isRegistered = false);
+    if (result['success']) {
+      setState(() {
+        _isRegistered = false;
+        _hasFeedback = false;
+      });
+    }
+  }
+
+  Future<void> _submitFeedback(String text) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || text.trim().isEmpty) return;
+
+    Navigator.pop(context);
+
+    try {
+      final docRef = await FirebaseFirestore.instance.collection('feedback').add({
+        'eventId': widget.event.id,
+        'eventTitle': widget.event.title,
+        'userId': user.uid,
+        'text': text,
+        'sentimentLabel': null,
+        'sentimentScore': null,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      if (mounted) {
+        setState(() => _hasFeedback = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Thank you! Your feedback has been submitted successfully.'),
+            backgroundColor: const Color(0xFF3674B5),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+
+      try {
+        final uri = Uri.parse('${AppConstants.apiBaseUrl}/analyze-sentiment');
+        await http.post(
+          uri,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "feedback_id": docRef.id,
+            "text": text,
+          }),
+        ).timeout(const Duration(seconds: 10));
+      } catch (e) {
+        debugPrint("AI Analysis background error: $e");
+      }
+    } catch (e) {
+      debugPrint("Firebase Save Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sorry, an error occurred while submitting your feedback.')),
+        );
+      }
+    }
+  }
+
+  void _showFeedbackSheet() {
+    final TextEditingController feedbackController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Leave Feedback',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3674B5),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: feedbackController,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Tell us about your experience...',
+                filled: true,
+                fillColor: const Color(0xFFF0F9FF),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _submitFeedback(feedbackController.text),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3674B5),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'Submit Feedback',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -515,7 +665,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
     if (_isRegistered) {
       return Column(
         children: [
-          // Registered confirmation row
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -540,9 +689,54 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+
+          if (_hasFeedback)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFA1E3F9)),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check, color: Color(0xFF3674B5), size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    'Feedback Submitted',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3674B5),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _showFeedbackSheet,
+                icon: const Icon(Icons.rate_review, color: Colors.white, size: 18),
+                label: const Text(
+                  'Leave Feedback',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF578FCA),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  elevation: 0,
+                ),
+              ),
+            ),
+
           if (event.date.isAfter(DateTime.now())) ...[
             const SizedBox(height: 12),
-            // Cancel button — only shown for upcoming events
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -557,14 +751,14 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 ),
                 child: _isCancelling
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2),
-                      )
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(color: Colors.red, strokeWidth: 2),
+                )
                     : const Text(
-                        'Cancel Registration',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                      ),
+                  'Cancel Registration',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
           ],
@@ -572,7 +766,6 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
       );
     }
 
-    // Not registered
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
@@ -586,38 +779,33 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
         ),
         child: _isRegistering
             ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-              )
+          height: 22,
+          width: 22,
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+        )
             : Text(
-                event.isFull
-                    ? 'Event Full'
-                    : !event.isRegistrationOpen
-                        ? 'Registration Closed'
-                        : 'Register Now',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+          event.isFull
+              ? 'Event Full'
+              : !event.isRegistrationOpen
+              ? 'Registration Closed'
+              : 'Register Now',
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }
 
   List<Color> _getGradientColors(String category) {
     switch (category) {
-      case 'tech':
-        return [const Color(0xFF3674B5), const Color(0xFF578FCA)];
-      case 'sports':
-        return [const Color(0xFF578FCA), const Color(0xFFA1E3F9)];
-      case 'arts':
-        return [const Color(0xFFA1E3F9), const Color(0xFF578FCA)];
-      case 'academic':
-        return [const Color(0xFF3674B5), const Color(0xFFA1E3F9)];
-      default:
-        return [const Color(0xFF578FCA), const Color(0xFFA1E3F9)];
+      case 'tech': return [const Color(0xFF3674B5), const Color(0xFF578FCA)];
+      case 'sports': return [const Color(0xFF578FCA), const Color(0xFFA1E3F9)];
+      case 'arts': return [const Color(0xFFA1E3F9), const Color(0xFF578FCA)];
+      case 'academic': return [const Color(0xFF3674B5), const Color(0xFFA1E3F9)];
+      default: return [const Color(0xFF578FCA), const Color(0xFFA1E3F9)];
     }
   }
 
