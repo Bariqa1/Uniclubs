@@ -14,8 +14,6 @@ class ClubProfilePage extends StatefulWidget {
 }
 
 class _ClubProfilePageState extends State<ClubProfilePage> {
-  final TextEditingController _newPostController = TextEditingController();
-  final TextEditingController _newMediaController = TextEditingController();
 
   void _handleLogout() async {
     try {
@@ -220,6 +218,9 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
   Widget _buildProfessionalPostCard(DocumentSnapshot post, bool isAdminOrLeader) {
     final data = post.data() as Map<String, dynamic>;
     final List media = data['media'] ?? [];
+    final clubData = widget.clubDoc.data() as Map<String, dynamic>;
+    final clubName = clubData['name'] ?? 'Club';
+    final clubLogo = clubData['logo'] as String?;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -229,21 +230,70 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)],
       ),
       child: InkWell(
+        borderRadius: BorderRadius.circular(20),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PostDetailScreen(post: post))),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (media.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(media[0], height: 180, width: double.infinity, fit: BoxFit.cover),
+              // Club name header
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: clubLogo != null && clubLogo.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.network(clubLogo, fit: BoxFit.cover),
+                          )
+                        : const Icon(Icons.groups_rounded, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    clubName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                      color: Color(0xFF3674B5),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Image with tap-to-expand
+              if (media.isNotEmpty) ...[
+                GestureDetector(
+                  onTap: () => _showFullScreenImage(context, media[0] as String),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      media[0] as String,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
                 ),
-              if (media.isNotEmpty) const SizedBox(height: 12),
-              Text(data['title'] ?? "Update", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-              const SizedBox(height: 8),
-              Text(data['content'] ?? "", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                const SizedBox(height: 12),
+              ],
+
+              Text(data['title'] ?? 'Update',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+              const SizedBox(height: 6),
+              Text(data['content'] ?? '',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13)),
             ],
           ),
         ),
@@ -251,38 +301,206 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
     );
   }
 
+  void _showFullScreenImage(BuildContext context, String url) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+            elevation: 0,
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(url, fit: BoxFit.contain),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showCreatePostDialog(BuildContext context) {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    final imageUrlCtrl = TextEditingController();
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("New Post"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: _newPostController, decoration: const InputDecoration(hintText: "Description")),
-            TextField(controller: _newMediaController, decoration: const InputDecoration(hintText: "Media URL")),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () async {
-              List<String> mediaArray = _newMediaController.text.split(',').where((e) => e.trim().isNotEmpty).map((e) => e.trim()).toList();
-              await FirebaseFirestore.instance.collection('posts').add({
-                'clubId': widget.clubDoc.id,
-                'title': 'New Update',
-                'content': _newPostController.text,
-                'media': mediaArray,
-                'timestamp': FieldValue.serverTimestamp(),
-              });
-              _newPostController.clear();
-              _newMediaController.clear();
-              if (!context.mounted) return;
-              Navigator.pop(context);
-            },
-            child: const Text("Post"),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => Dialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.edit_rounded, color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text('New Post',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E3A8A),
+                        )),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(ctx),
+                      child: const Icon(Icons.close_rounded, color: Color(0xFF90A4AE)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // Title field
+                _dialogField(titleCtrl, 'Title', 'e.g. Club Meeting Recap', maxLines: 1),
+                const SizedBox(height: 12),
+
+                // Content field
+                _dialogField(contentCtrl, 'Description', 'What would you like to share?', maxLines: 3),
+                const SizedBox(height: 12),
+
+                // Image URL field
+                _dialogField(imageUrlCtrl, 'Image URL (optional)', 'https://...', maxLines: 1),
+                const SizedBox(height: 8),
+
+                // Live preview
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: imageUrlCtrl,
+                  builder: (_, val, __) {
+                    final url = val.text.trim();
+                    if (url.isEmpty) return const SizedBox.shrink();
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        url,
+                        height: 140,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3F3),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.broken_image_rounded, color: Colors.redAccent, size: 18),
+                              SizedBox(width: 8),
+                              Text('Could not load image — check the URL',
+                                  style: TextStyle(color: Colors.redAccent, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Submit button
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3674B5),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            final title = titleCtrl.text.trim();
+                            final content = contentCtrl.text.trim();
+                            final imageUrl = imageUrlCtrl.text.trim();
+                            if (title.isEmpty) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('Please enter a title')),
+                              );
+                              return;
+                            }
+                            setDialog(() => isSubmitting = true);
+                            try {
+                              await FirebaseFirestore.instance
+                                  .collection('posts')
+                                  .add({
+                                'clubId': widget.clubDoc.id,
+                                'title': title,
+                                'content': content,
+                                'media': imageUrl.isNotEmpty ? [imageUrl] : [],
+                                'timestamp': FieldValue.serverTimestamp(),
+                              });
+                              if (!ctx.mounted) return;
+                              Navigator.pop(ctx);
+                            } catch (e) {
+                              setDialog(() => isSubmitting = false);
+                              if (!ctx.mounted) return;
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Error: $e')),
+                              );
+                            }
+                          },
+                    child: isSubmitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Text('Publish Post',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dialogField(TextEditingController ctrl, String label, String hint,
+      {int maxLines = 1}) {
+    return TextField(
+      controller: ctrl,
+      maxLines: maxLines,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        filled: true,
+        fillColor: const Color(0xFFF0F9FF),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFFDEECF8))),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Color(0xFF578FCA), width: 1.5)),
       ),
     );
   }

@@ -79,31 +79,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
         ),
       ),
 
-      floatingActionButton : Padding(
-        padding:const EdgeInsets.only(bottom: 0, right:0),
-        child: IconButton(
-
-          onPressed: () {Navigator.push(context,
-            MaterialPageRoute(builder: (context) => AiAssistantScreen(
+      floatingActionButton: _AiChatFab(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AiAssistantScreen(
               currentUser: ChatUser(
                 id: FirebaseAuth.instance.currentUser!.uid,
-                firstName: FirebaseAuth.instance.currentUser!.displayName?? "User",
+                firstName: FirebaseAuth.instance.currentUser!.displayName ?? 'User',
               ),
-            ),),);},
-          icon: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Color(0xFF578FCA),
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF578FCA).withValues(alpha: 0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: const Icon(Icons.message_outlined, color: Colors.white,size: 65,),
           ),
         ),
       ),
@@ -927,15 +912,35 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: media.length,
-                itemBuilder: (_, i) => Container(
-                  width: 110,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFA1E3F9).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(10),
-                    image: DecorationImage(
-                      image: NetworkImage(media[i] as String),
-                      fit: BoxFit.cover,
+                itemBuilder: (_, i) => GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => Scaffold(
+                        backgroundColor: Colors.black,
+                        appBar: AppBar(
+                          backgroundColor: Colors.black,
+                          iconTheme: const IconThemeData(color: Colors.white),
+                          elevation: 0,
+                        ),
+                        body: Center(
+                          child: InteractiveViewer(
+                            child: Image.network(media[i] as String, fit: BoxFit.contain),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  child: Container(
+                    width: 110,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA1E3F9).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                      image: DecorationImage(
+                        image: NetworkImage(media[i] as String),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
@@ -971,5 +976,86 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'social': return '🎉';
       default: return '📌';
     }
+  }
+}
+
+// ── Animated AI chat FAB ──────────────────────────────────────────────────────
+class _AiChatFab extends StatefulWidget {
+  final VoidCallback onTap;
+  const _AiChatFab({required this.onTap});
+
+  @override
+  State<_AiChatFab> createState() => _AiChatFabState();
+}
+
+class _AiChatFabState extends State<_AiChatFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scale,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          height: 62,
+          width: 62,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3674B5).withValues(alpha: 0.45),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 30),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
