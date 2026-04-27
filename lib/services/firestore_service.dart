@@ -268,21 +268,38 @@ class FirestoreService {
           .where('userId', isEqualTo: userId)
           .get();
 
-      List<Map<String, dynamic>> registrations = [];
+      final activeDocs = snapshot.docs.where((doc) {
+        final status = (doc.data() as Map<String, dynamic>)['status'] as String? ?? 'registered';
+        return status != 'cancelled';
+      }).toList();
 
-      for (var doc in snapshot.docs) {
-        Map<String, dynamic> regData = doc.data() as Map<String, dynamic>;
+      if (activeDocs.isEmpty) return [];
+
+      // Batch-fetch all events in one query instead of one per registration
+      final eventIds = activeDocs
+          .map((d) => (d.data() as Map<String, dynamic>)['eventId'] as String)
+          .toSet()
+          .toList();
+
+      final eventSnap = await _firestore
+          .collection('events')
+          .where(FieldPath.documentId, whereIn: eventIds)
+          .get();
+
+      final eventMap = {for (final e in eventSnap.docs) e.id: e.data() as Map<String, dynamic>};
+
+      final List<Map<String, dynamic>> registrations = [];
+      for (final doc in activeDocs) {
+        final regData = doc.data() as Map<String, dynamic>;
         final regStatus = regData['status'] as String? ?? 'registered';
-        if (regStatus == 'cancelled') continue;
-
-        String eventId = regData['eventId'];
-        Map<String, dynamic>? eventData = await getEvent(eventId);
-
+        final eventData = eventMap[regData['eventId'] as String];
         if (eventData != null) {
-          eventData['registrationId'] = doc.id;
-          eventData['registrationStatus'] = regStatus;
-          eventData['registeredAt'] = regData['registeredAt'];
-          registrations.add(eventData);
+          registrations.add({
+            ...eventData,
+            'registrationId': doc.id,
+            'registrationStatus': regStatus,
+            'registeredAt': regData['registeredAt'],
+          });
         }
       }
 
@@ -374,18 +391,38 @@ class FirestoreService {
           .where('eventId', isEqualTo: eventId)
           .get();
 
+      final activeDocs = snap.docs.where((doc) {
+        final status = doc.data()['status'] ?? 'registered';
+        return status != 'cancelled';
+      }).toList();
+
+      if (activeDocs.isEmpty) return [];
+
+      // Batch-fetch all user profiles in one query
+      final userIds = activeDocs
+          .map((d) => d.data()['userId'] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final userSnap = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: userIds)
+          .get();
+
+      final userMap = {for (final u in userSnap.docs) u.id: u.data()};
+
       final List<Map<String, dynamic>> result = [];
-      for (final doc in snap.docs) {
+      for (final doc in activeDocs) {
         final data = doc.data();
-        final status = data['status'] ?? 'registered';
-        if (status == 'cancelled') continue; // skip cancelled client-side
-        final userData = await getUserProfile(data['userId'] ?? '');
+        final userId = data['userId'] as String? ?? '';
+        final userData = userMap[userId];
         result.add({
           'registrationId': doc.id,
-          'userId': data['userId'] ?? '',
+          'userId': userId,
           'userName': userData?['name'] ?? 'Unknown',
           'userEmail': userData?['email'] ?? '',
-          'status': status,
+          'status': data['status'] ?? 'registered',
           'registeredAt': data['registeredAt'],
           'attendedAt': data['attendedAt'],
         });
@@ -493,21 +530,27 @@ class FirestoreService {
           .orderBy('createdAt', descending: true)
           .get();
 
-      List<Map<String, dynamic>> feedbackList = [];
+      if (snapshot.docs.isEmpty) return [];
 
-      for (var doc in snapshot.docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      // Batch-fetch all events in one query
+      final eventIds = snapshot.docs
+          .map((d) => (d.data() as Map<String, dynamic>)['eventId'] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final eventSnap = await _firestore
+          .collection('events')
+          .where(FieldPath.documentId, whereIn: eventIds)
+          .get();
+
+      final eventMap = {for (final e in eventSnap.docs) e.id: (e.data() as Map<String, dynamic>)['title'] as String? ?? 'Unknown Event'};
+
+      final List<Map<String, dynamic>> feedbackList = [];
+      for (final doc in snapshot.docs) {
+        final data = doc.data() as Map<String, dynamic>;
         data['feedbackId'] = doc.id;
-
-        // Attach event title
-        String eventId = data['eventId'] ?? '';
-        if (eventId.isNotEmpty) {
-          Map<String, dynamic>? eventData = await getEvent(eventId);
-          data['eventTitle'] = eventData?['title'] ?? 'Unknown Event';
-        } else {
-          data['eventTitle'] = 'Unknown Event';
-        }
-
+        data['eventTitle'] = eventMap[data['eventId'] ?? ''] ?? 'Unknown Event';
         feedbackList.add(data);
       }
 
@@ -649,11 +692,26 @@ class FirestoreService {
           .where('status', isEqualTo: 'pending')
           .get();
 
-      List<Map<String, dynamic>> requests = [];
-      for (var doc in snap.docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      if (snap.docs.isEmpty) return [];
+
+      final userIds = snap.docs
+          .map((d) => (d.data() as Map<String, dynamic>)['userId'] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final userSnap = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: userIds)
+          .get();
+
+      final userMap = {for (final u in userSnap.docs) u.id: u.data() as Map<String, dynamic>};
+
+      final List<Map<String, dynamic>> requests = [];
+      for (final doc in snap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
         data['membershipId'] = doc.id;
-        Map<String, dynamic>? userData = await getUserProfile(data['userId']);
+        final userData = userMap[data['userId'] as String? ?? ''];
         data['userName'] = userData?['name'] ?? 'Unknown User';
         data['userEmail'] = userData?['email'] ?? '';
         requests.add(data);
@@ -674,11 +732,26 @@ class FirestoreService {
           .where('status', isEqualTo: 'approved')
           .get();
 
-      List<Map<String, dynamic>> members = [];
-      for (var doc in snap.docs) {
-        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      if (snap.docs.isEmpty) return [];
+
+      final userIds = snap.docs
+          .map((d) => (d.data() as Map<String, dynamic>)['userId'] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList();
+
+      final userSnap = await _firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: userIds)
+          .get();
+
+      final userMap = {for (final u in userSnap.docs) u.id: u.data() as Map<String, dynamic>};
+
+      final List<Map<String, dynamic>> members = [];
+      for (final doc in snap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
         data['membershipId'] = doc.id;
-        Map<String, dynamic>? userData = await getUserProfile(data['userId']);
+        final userData = userMap[data['userId'] as String? ?? ''];
         data['userName'] = userData?['name'] ?? 'Unknown User';
         data['userEmail'] = userData?['email'] ?? '';
         members.add(data);
