@@ -41,7 +41,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF578FCA).withOpacity(0.1),
+              color: const Color(0xFF578FCA).withValues(alpha: 0.1),
               blurRadius: 20,
               offset: const Offset(0, -5),
             ),
@@ -78,36 +78,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
         ),
       ),
-
-      floatingActionButton : Padding(
-        padding:const EdgeInsets.only(bottom: 0, right:0),
-        child: IconButton(
-
-          onPressed: () {Navigator.push(context,
-            MaterialPageRoute(builder: (context) => AiAssistantScreen(
+      floatingActionButton: _AiChatFab(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AiAssistantScreen(
               currentUser: ChatUser(
                 id: FirebaseAuth.instance.currentUser!.uid,
-                firstName: FirebaseAuth.instance.currentUser!.displayName?? "User",
+                firstName: FirebaseAuth.instance.currentUser!.displayName ?? 'User',
               ),
-            ),),);},
-          icon: Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Color(0xFF578FCA),
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF578FCA).withValues(alpha: 0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
             ),
-            child: const Icon(Icons.message_outlined, color: Colors.white,size: 65,),
           ),
         ),
       ),
-
     );
   }
 
@@ -127,8 +110,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
         decoration: BoxDecoration(
           gradient: isSelected
               ? const LinearGradient(
-                  colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
-                )
+            colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
+          )
               : null,
           borderRadius: BorderRadius.circular(16),
         ),
@@ -179,7 +162,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadEvents();
-    // Check for event reminders and feedback reminders on every app open
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       NotificationService().checkAndSendReminders(uid);
@@ -190,9 +172,8 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Fetch upcoming events from Firestore
       List<Map<String, dynamic>> eventsData =
-          await _firestoreService.getUpcomingEvents(limit: 10);
+      await _firestoreService.getUpcomingEvents(limit: 10);
       List<Event> events = eventsData.map((data) => Event.fromFirestore(data)).toList();
 
       setState(() {
@@ -203,7 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _isLoading = false);
     }
 
-    // Load AI recommendations from backend (non-blocking)
     _loadRecommendations();
   }
 
@@ -213,14 +193,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     setState(() => _isLoadingRecommendations = true);
 
-    final data = await _apiService.getRecommendations(uid);
-    final recommended = data.map((e) => Event.fromApi(e)).toList();
+    try {
+      final data = await _apiService.getRecommendations(uid);
+      final recommended = data.map((e) => Event.fromApi(e)).toList();
 
-    if (mounted) {
-      setState(() {
-        _recommendedEvents = recommended;
-        _isLoadingRecommendations = false;
-      });
+      if (mounted) {
+        setState(() {
+          _recommendedEvents = recommended;
+          _isLoadingRecommendations = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRecommendations = false;
+        });
+      }
     }
   }
 
@@ -237,29 +225,29 @@ class _HomeScreenState extends State<HomeScreen> {
       child: SafeArea(
         child: _isLoading
             ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF3674B5)),
-              )
+          child: CircularProgressIndicator(color: Color(0xFF3674B5)),
+        )
             : RefreshIndicator(
-                onRefresh: _loadEvents,
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildAppBar(),
-                      const SizedBox(height: 20),
-                      _buildRecommendationsSection(),
-                      const SizedBox(height: 24),
-                      _buildQuickActions(),
-                      const SizedBox(height: 24),
-                      _buildUpcomingEventsSection(),
-                      const SizedBox(height: 24),
-                      _buildClubUpdatesSection(),
-                      const SizedBox(height: 24),
-                    ],
-                  ),
-                ),
-              ),
+          onRefresh: _loadEvents,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildAppBar(),
+                const SizedBox(height: 20),
+                _buildRecommendationsSection(),
+                const SizedBox(height: 24),
+                _buildQuickActions(),
+                const SizedBox(height: 24),
+                _buildUpcomingEventsSection(),
+                const SizedBox(height: 24),
+                _buildClubUpdatesSection(),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -286,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Discover new events and clubs',
                 style: TextStyle(
                   fontSize: 14,
-                  color: const Color(0xFF578FCA).withOpacity(0.7),
+                  color: const Color(0xFF578FCA), // Safe color fallback
                 ),
               ),
             ],
@@ -301,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF578FCA).withOpacity(0.1),
+                      color: const Color(0xFF578FCA).withValues(alpha: 0.1),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -387,23 +375,23 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 220,
           child: _isLoadingRecommendations
               ? const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF3674B5)),
-                )
+            child: CircularProgressIndicator(color: Color(0xFF3674B5)),
+          )
               : _recommendedEvents.isEmpty
-                  ? const Center(
-                      child: Text(
-                        'No recommendations yet',
-                        style: TextStyle(color: Color(0xFF578FCA)),
-                      ),
-                    )
-                  : ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: _recommendedEvents.length,
-                      itemBuilder: (context, index) {
-                        return _buildRecommendedEventCard(_recommendedEvents[index]);
-                      },
-                    ),
+              ? const Center(
+            child: Text(
+              'No recommendations yet',
+              style: TextStyle(color: Color(0xFF578FCA)),
+            ),
+          )
+              : ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: _recommendedEvents.length,
+            itemBuilder: (context, index) {
+              return _buildRecommendedEventCard(_recommendedEvents[index]);
+            },
+          ),
         ),
       ],
     );
@@ -416,133 +404,124 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
       ),
       child: Container(
-      width: 300,
-      margin: const EdgeInsets.only(right: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Event Header with Gradient
-          Container(
-            height: 100,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _getGradientColors(event.category),
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(24),
-                topRight: Radius.circular(24),
-              ),
+        width: 300,
+        margin: const EdgeInsets.only(right: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF578FCA).withValues(alpha: 0.15),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
             ),
-            child: Stack(
-              children: [
-                // "For You" Badge
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.auto_awesome, color: Colors.white, size: 12),
-                        SizedBox(width: 4),
-                        Text(
-                          'For You',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              height: 100,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: _getGradientColors(event.category),
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
+              child: Stack(
+                children: [
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.auto_awesome, color: Colors.white, size: 12),
+                          SizedBox(width: 4),
+                          Text(
+                            'For You',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                Center(
-                  child: Icon(
-                    Icons.event_note_rounded,
-                    size: 40,
-                    color: Colors.white.withOpacity(0.3),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Event Details
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Event Title
-                Text(
-                  event.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF3674B5),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-
-                // Category Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFA1E3F9).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    event.category.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF3674B5),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Date & Time
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 12, color: Color(0xFF578FCA)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        '${event.formattedDate} • ${event.formattedTime}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: const Color(0xFF578FCA).withOpacity(0.8),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  Center(
+                    child: Icon(
+                      Icons.event_note_rounded,
+                      size: 40,
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3674B5),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA1E3F9).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      event.category.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF3674B5),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 12, color: Color(0xFF578FCA)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${event.formattedDate} • ${event.formattedTime}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF578FCA), // Safe color fallback
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -596,7 +575,7 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -607,7 +586,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 28),
@@ -645,21 +624,21 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 16),
         _upcomingEvents.isEmpty
             ? const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'No upcoming events',
-                  style: TextStyle(color: Color(0xFF578FCA)),
-                ),
-              )
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'No upcoming events',
+            style: TextStyle(color: Color(0xFF578FCA)),
+          ),
+        )
             : ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: _upcomingEvents.take(3).length,
-                itemBuilder: (context, index) {
-                  return _buildUpcomingEventCard(_upcomingEvents[index]);
-                },
-              ),
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          itemCount: _upcomingEvents.take(3).length,
+          itemBuilder: (context, index) {
+            return _buildUpcomingEventCard(_upcomingEvents[index]);
+          },
+        ),
       ],
     );
   }
@@ -671,88 +650,85 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(builder: (_) => EventDetailScreen(event: event)),
       ),
       child: Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Event Icon
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _getGradientColors(event.category),
-              ),
-              borderRadius: BorderRadius.circular(16),
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF578FCA).withValues(alpha: 0.08),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
             ),
-            child: Center(
-              child: Text(
-                _getCategoryEmoji(event.category),
-                style: const TextStyle(fontSize: 28),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: _getGradientColors(event.category),
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: Text(
+                  _getCategoryEmoji(event.category),
+                  style: const TextStyle(fontSize: 28),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-
-          // Event Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  event.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF3674B5),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    event.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF3674B5),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today, size: 12, color: Color(0xFF578FCA)),
-                    const SizedBox(width: 4),
-                    Text(
-                      event.formattedDate,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: const Color(0xFF578FCA).withOpacity(0.7),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.calendar_today, size: 12, color: Color(0xFF578FCA)),
+                      const SizedBox(width: 4),
+                      Text(
+                        event.formattedDate,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF578FCA), // Safe color fallback
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on, size: 12, color: Color(0xFF578FCA)),
-                    const SizedBox(width: 4),
-                    Text(
-                      event.location,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: const Color(0xFF578FCA).withOpacity(0.7),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 12, color: Color(0xFF578FCA)),
+                      const SizedBox(width: 4),
+                      Text(
+                        event.location,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF578FCA), // Safe color fallback
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -768,11 +744,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFA1E3F9).withOpacity(0.3),
+                  color: const Color(0xFFA1E3F9).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.campaign_rounded,
-                    color: Color(0xFF3674B5), size: 20),
+                child: const Icon(Icons.campaign_rounded, color: Color(0xFF3674B5), size: 20),
               ),
               const SizedBox(width: 12),
               const Text(
@@ -797,17 +772,15 @@ class _HomeScreenState extends State<HomeScreen> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(
                 padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(
-                    child: CircularProgressIndicator(color: Color(0xFF3674B5))),
+                child: Center(child: CircularProgressIndicator(color: Color(0xFF3674B5))),
               );
             }
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+              return const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
                   'No club updates yet',
-                  style: TextStyle(
-                      color: const Color(0xFF578FCA).withOpacity(0.7)),
+                  style: TextStyle(color: Color(0xFF578FCA)),
                 ),
               );
             }
@@ -817,8 +790,7 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               itemCount: snapshot.data!.docs.length,
               itemBuilder: (_, i) {
-                final data =
-                    snapshot.data!.docs[i].data() as Map<String, dynamic>;
+                final data = snapshot.data!.docs[i].data() as Map<String, dynamic>;
                 return _buildPostCard(data);
               },
             );
@@ -833,8 +805,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final date = timestamp?.toDate();
     String dateStr = '';
     if (date != null) {
-      final months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      ];
       dateStr = '${months[date.month]} ${date.day}';
     }
     final content = data['content'] as String? ?? '';
@@ -848,7 +822,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.08),
+            color: const Color(0xFF578FCA).withValues(alpha: 0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -863,11 +837,10 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 padding: const EdgeInsets.all(7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFA1E3F9).withOpacity(0.3),
+                  color: const Color(0xFFA1E3F9).withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(9),
                 ),
-                child: const Icon(Icons.campaign_rounded,
-                    size: 14, color: Color(0xFF3674B5)),
+                child: const Icon(Icons.campaign_rounded, size: 14, color: Color(0xFF3674B5)),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -877,10 +850,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     if ((data['clubName'] as String? ?? '').isNotEmpty)
                       Text(
                         data['clubName'] as String,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xFF578FCA).withOpacity(0.8),
+                          color: Color(0xFF578FCA),
                         ),
                       ),
                     Text(
@@ -900,9 +873,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 8),
                 Text(
                   dateStr,
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: const Color(0xFF578FCA).withOpacity(0.6)),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF578FCA)),
                 ),
               ],
             ],
@@ -911,10 +882,10 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: 10),
             Text(
               content,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 13,
                 height: 1.5,
-                color: const Color(0xFF3674B5).withOpacity(0.75),
+                color: Color(0xFF3674B5),
               ),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
@@ -928,26 +899,48 @@ class _HomeScreenState extends State<HomeScreen> {
                 scrollDirection: Axis.horizontal,
                 itemCount: media.length,
                 itemBuilder: (_, i) {
-                  // التأكد إن الرابط مو فاضي
+                  // Safe link parsing
                   final String imageUrl = media[i] != null ? media[i].toString().trim() : '';
                   final bool hasValidImage = imageUrl.isNotEmpty;
 
-                  return Container(
-                    width: 110,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFA1E3F9).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                      image: hasValidImage
-                          ? DecorationImage(
-                        image: NetworkImage(imageUrl),
-                        fit: BoxFit.cover,
-                      )
+                  return GestureDetector(
+                    onTap: hasValidImage
+                        ? () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => Scaffold(
+                          backgroundColor: Colors.black,
+                          appBar: AppBar(
+                            backgroundColor: Colors.black,
+                            iconTheme: const IconThemeData(color: Colors.white),
+                            elevation: 0,
+                          ),
+                          body: Center(
+                            child: InteractiveViewer(
+                              child: Image.network(imageUrl, fit: BoxFit.contain),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                        : null,
+                    child: Container(
+                      width: 110,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFA1E3F9).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        image: hasValidImage
+                            ? DecorationImage(
+                          image: NetworkImage(imageUrl),
+                          fit: BoxFit.cover,
+                        )
+                            : null,
+                      ),
+                      child: !hasValidImage
+                          ? const Center(child: Icon(Icons.broken_image, color: Colors.grey))
                           : null,
                     ),
-                    child: !hasValidImage
-                        ? const Center(child: Icon(Icons.broken_image, color: Colors.grey))
-                        : null,
                   );
                 },
               ),
@@ -975,12 +968,99 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _getCategoryEmoji(String category) {
     switch (category) {
-      case 'tech': return '💻';
-      case 'sports': return '⚽';
-      case 'arts': return '🎨';
-      case 'academic': return '📚';
-      case 'social': return '🎉';
-      default: return '📌';
+      case 'tech':
+        return '💻';
+      case 'sports':
+        return '⚽';
+      case 'arts':
+        return '🎨';
+      case 'academic':
+        return '📚';
+      case 'social':
+        return '🎉';
+      default:
+        return '📌';
     }
+  }
+}
+
+// ── Animated AI chat FAB ──────────────────────────────────────────────────────
+class _AiChatFab extends StatefulWidget {
+  final VoidCallback onTap;
+  const _AiChatFab({required this.onTap});
+
+  @override
+  State<_AiChatFab> createState() => _AiChatFabState();
+}
+
+class _AiChatFabState extends State<_AiChatFab>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _scale = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _pulse, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _scale,
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          height: 62,
+          width: 62,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF3674B5).withValues(alpha: 0.45),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 30),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
