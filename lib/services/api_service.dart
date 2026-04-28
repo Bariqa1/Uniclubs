@@ -9,29 +9,23 @@ class ApiService {
 
   final String _base = AppConstants.apiBaseUrl;
 
-  /// GET /api/recommendations/{userId}
-  /// Returns a list of recommended events for the given user.
   Future<List<Map<String, dynamic>>> getRecommendations(String userId, {int limit = 10}) async {
     try {
-      final uri = Uri.parse('$_base/recommendations/$userId?limit=$limit');
+      final uri = Uri.parse('$_base/api/recommendations/$userId?limit=$limit');
       final response = await http.get(uri).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
-        final events = data['events'] as List<dynamic>? ?? [];
-        return events.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        final List<dynamic> eventsJson = data['events'] ?? [];
+        return eventsJson.map((e) => Map<String, dynamic>.from(e as Map)).toList();
       }
-    } catch (_) {
-      // Server not running or network error — fail silently, return empty
-    }
+    } catch (_) {}
     return [];
   }
 
-  /// DELETE /api/recommendations/{userId}/cache
-  /// Invalidates the recommendation cache for a user (call after registration).
   Future<void> invalidateRecommendationCache(String userId) async {
     try {
-      final uri = Uri.parse('$_base/recommendations/$userId/cache');
+      final uri = Uri.parse('$_base/api/recommendations/$userId/cache');
       await http.delete(uri).timeout(const Duration(seconds: 5));
     } catch (_) {}
   }

@@ -1,9 +1,11 @@
 import 'dart:convert';
-import 'package:dash_chat_2/dash_chat_2.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:dash_chat_2/dash_chat_2.dart';
+import '../utils/constants.dart';
 
 class AiService {
-  static const String baseUrl = "http://10.0.2.2:8000";
+  static const String baseUrl = AppConstants.apiBaseUrl;
 
   static Future<String> sendMessage(String message, String userId) async {
     try {
@@ -12,39 +14,45 @@ class AiService {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "user_id": userId,
-          "message": message
+          "message": message,
         }),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data["response"];
+        return data["response"] ?? "No response from AI";
       } else {
         return "Server error: ${response.statusCode}";
       }
     } catch (e) {
+      debugPrint("Send Message Error: $e");
       return "Error connecting to server";
     }
   }
 
   static Future<List<ChatMessage>> getMessages(String userId) async {
-    final response = await http.get(
-      Uri.parse("$baseUrl/messages/$userId"),
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return List<ChatMessage>.from(data.map((msg) {
-        return ChatMessage(
-          text: msg["text"],
-          user: ChatUser(
-            id: msg["userId"],
-            firstName: msg["userName"],
-          ),
-          createdAt: DateTime.parse(msg["createdAt"]),
-        );
-      }));
-    } else {
-      throw Exception("Failed to load messages");
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/messages/$userId"),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List history = data['history'] ?? [];
+        
+        final aiUser = ChatUser(id: "0", firstName: "AI Assistant");
+        final currentUser = ChatUser(id: userId);
+
+        return history.map((m) {
+          return ChatMessage(
+            text: m['content'] ?? "",
+            user: m['role'] == 'ai' ? aiUser : currentUser,
+            createdAt: DateTime.now(),
+          );
+        }).toList().reversed.toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint("Get Messages Error: $e");
+      return [];
     }
   }
 
@@ -55,7 +63,6 @@ class AiService {
         headers: {"Content-Type": "application/json"},
         body: jsonEncode(data),
       );
-
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
         return (result['predicted_attendance'] as num).toDouble();
@@ -63,7 +70,7 @@ class AiService {
         throw Exception("Failed to get prediction");
       }
     } catch (e) {
-      print("Prediction Error: $e");
+      debugPrint("Prediction Error: $e");
       return 0.0;
     }
   }

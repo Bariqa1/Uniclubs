@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'admin_clubs_screen.dart';
 import 'admin_leaders_screen.dart';
 import 'admin_reports_screen.dart';
+import 'admin_attendance_screen.dart';
 import 'widgets/admin_header.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -18,8 +18,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   final List<Widget> _screens = [
     const AdminHomeScreen(),
-    const AdminClubsScreen(userRole: 'admin'),
-    const AdminLeadersScreen(),
+    const AdminManagementScreen(),
+    const AdminAttendanceScreen(),
     const AdminReportsScreen(),
   ];
 
@@ -34,14 +34,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFF3674B5),
         unselectedItemColor: Colors.grey[400],
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
+        selectedFontSize: 10,
+        unselectedFontSize: 10,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.groups_rounded), label: 'Clubs'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline_rounded), label: 'Leaders'),
+          BottomNavigationBarItem(icon: Icon(Icons.folder_shared_rounded), label: 'Management'),
+          BottomNavigationBarItem(icon: Icon(Icons.how_to_reg_rounded), label: 'Attendance'),
           BottomNavigationBarItem(icon: Icon(Icons.insert_chart_outlined_rounded), label: 'Reports'),
         ],
+      ),
+    );
+  }
+}
+
+class AdminManagementScreen extends StatelessWidget {
+  const AdminManagementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF4F8FB),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          title: const Text('Management', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold, fontSize: 18)),
+          centerTitle: true,
+          bottom: const TabBar(
+            labelColor: Color(0xFF3674B5),
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Color(0xFF3674B5),
+            indicatorWeight: 3,
+            tabs: [
+              Tab(text: 'Clubs'),
+              Tab(text: 'Leaders'),
+            ],
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            AdminClubsScreen(userRole: 'admin'),
+            AdminLeadersScreen(),
+          ],
+        ),
       ),
     );
   }
@@ -61,27 +97,20 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   int _eventsHeld = 0;
   bool _isLoadingStats = true;
 
-  double _positivePct = 0;
-  double _neutralPct = 0;
-  double _negativePct = 0;
-  bool _isLoadingSentiment = true;
-
-  List<Map<String, dynamic>> _attendanceData = [];
-  bool _isLoadingAttendance = true;
+  List<Map<String, dynamic>> _aiInsights = [];
+  bool _isLoadingInsights = true;
 
   @override
   void initState() {
     super.initState();
     _loadDashboardStats();
-    _loadSentimentData();
-    _loadAttendanceData();
+    _loadAIInsights();
   }
 
   Future<void> _loadDashboardStats() async {
     try {
       final db = FirebaseFirestore.instance;
       final now = Timestamp.now();
-
       final clubsSnap = await db.collection('clubs').count().get();
       final studentsSnap = await db.collection('users').where('role', isEqualTo: 'student').count().get();
       final activeEventsSnap = await db.collection('events').where('date', isGreaterThanOrEqualTo: now).count().get();
@@ -89,10 +118,10 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
 
       if (mounted) {
         setState(() {
-          _totalClubs = clubsSnap.count ?? 0;
-          _totalStudents = studentsSnap.count ?? 0;
-          _activeEvents = activeEventsSnap.count ?? 0;
-          _eventsHeld = eventsHeldSnap.count ?? 0;
+          _totalClubs = (clubsSnap.count ?? 0).toInt();
+          _totalStudents = (studentsSnap.count ?? 0).toInt();
+          _activeEvents = (activeEventsSnap.count ?? 0).toInt();
+          _eventsHeld = (eventsHeldSnap.count ?? 0).toInt();
           _isLoadingStats = false;
         });
       }
@@ -101,65 +130,231 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     }
   }
 
-  Future<void> _loadSentimentData() async {
+  Future<void> _loadAIInsights() async {
     try {
-      final snap = await FirebaseFirestore.instance.collection('feedback').get();
-      if (snap.docs.isEmpty) {
-        if (mounted) setState(() => _isLoadingSentiment = false);
-        return;
+      final db = FirebaseFirestore.instance;
+      final clubsSnap = await db.collection('clubs').get();
+      final eventsSnap = await db.collection('events').get();
+      final feedbackSnap = await db.collection('feedback').get();
+
+      Map<String, String> clubNames = {for (var d in clubsSnap.docs) d.id: d.data()['name'] ?? 'Club'};
+      Map<String, String> eventToClub = {for (var d in eventsSnap.docs) d.id: d.data()['clubId'] ?? ''};
+      Map<String, Map<String, dynamic>> clubStats = {};
+
+      for (var doc in eventsSnap.docs) {
+        final data = doc.data();
+        final clubId = data['clubId'] ?? 'Unknown';
+        if (clubId == 'Unknown') continue;
+
+        final actual = (data['actualAttendance'] as num? ?? 0).toDouble();
+        final predicted = (data['predictedAttendance'] as num? ?? 1).toDouble();
+
+        clubStats.putIfAbsent(clubId, () => {'attendanceSum': 0.0, 'eventsCount': 0, 'positiveFeedback': 0, 'totalFeedback': 0});
+        clubStats[clubId]!['attendanceSum'] += (actual / (predicted > 0 ? predicted : 1));
+        clubStats[clubId]!['eventsCount'] += 1;
       }
 
-      int pos = 0, neu = 0, neg = 0;
+      for (var doc in feedbackSnap.docs) {
+        final data = doc.data();
+        final eventId = data['eventId'] ?? '';
+        final clubId = eventToClub[eventId] ?? 'Unknown';
+        if (clubId == 'Unknown') continue;
 
-      // حلقة واحدة فقط للمرور على البيانات
-      for (var doc in snap.docs) {
-        String sentiment = doc.data()['sentimentLabel'] ?? 'neutral';
-        if (sentiment.toLowerCase() == 'positive') {
-          pos++;
-        } else if (sentiment.toLowerCase() == 'negative') {
-          neg++;
-        } else {
-          neu++;
-        }
+        final sentiment = (data['sentimentLabel'] ?? 'neutral').toString().toLowerCase();
+        clubStats.putIfAbsent(clubId, () => {'attendanceSum': 0.0, 'eventsCount': 0, 'positiveFeedback': 0, 'totalFeedback': 0});
+
+        clubStats[clubId]!['totalFeedback'] += 1;
+        if (sentiment.contains('positive')) clubStats[clubId]!['positiveFeedback'] += 1;
       }
 
-      int total = pos + neu + neg;
-      if (mounted && total > 0) {
-        setState(() {
-          _positivePct = (pos / total) * 100;
-          _neutralPct = (neu / total) * 100;
-          _negativePct = (neg / total) * 100;
-          _isLoadingSentiment = false;
+      List<Map<String, dynamic>> finalInsights = [];
+      clubStats.forEach((id, stats) {
+        if (id == 'Unknown') return;
+
+        double avgAttendance = stats['eventsCount'] > 0 ? (stats['attendanceSum'] / stats['eventsCount']) : 0.0;
+        double satisfaction = stats['totalFeedback'] > 0 ? (stats['positiveFeedback'] / stats['totalFeedback']) : 0.0;
+
+        double healthScore = (satisfaction * 0.6) + (avgAttendance.clamp(0.0, 1.0) * 0.4);
+
+        String aiStatus = healthScore >= 0.8 ? 'Excellent' : (healthScore >= 0.5 ? 'Stable' : 'Needs Review');
+        Color statusColor = healthScore >= 0.8 ? Colors.green : (healthScore >= 0.5 ? Colors.orange : Colors.red);
+
+        finalInsights.add({
+          'id': id, // MODIFICATION 1: Storing the club ID
+          'name': clubNames[id] ?? 'Club',
+          'healthScore': healthScore,
+          'satisfaction': satisfaction,
+          'status': aiStatus,
+          'color': statusColor,
         });
-      } else {
-        if (mounted) setState(() => _isLoadingSentiment = false);
+      });
+
+      finalInsights.sort((a, b) => b['healthScore'].compareTo(a['healthScore']));
+
+      if (mounted) {
+        setState(() {
+          _aiInsights = finalInsights.take(5).toList();
+          _isLoadingInsights = false;
+        });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoadingSentiment = false);
+      if (mounted) setState(() => _isLoadingInsights = false);
     }
   }
 
-  Future<void> _loadAttendanceData() async {
-    try {
-      final snap = await FirebaseFirestore.instance.collection('events').where('actualAttendance', isGreaterThan: 0).limit(3).get();
-      List<Map<String, dynamic>> temp = [];
-      for (var doc in snap.docs) {
-        var data = doc.data();
-        temp.add({
-          'title': data['title'] ?? 'Event',
-          'predicted': (data['predictedAttendance'] ?? 0).toDouble(),
-          'actual': (data['actualAttendance'] ?? 0).toDouble(),
-        });
-      }
-      if (mounted) {
-        setState(() {
-          _attendanceData = temp;
-          _isLoadingAttendance = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _isLoadingAttendance = false);
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(color: Color(0xFFF4F8FB)),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const AdminHeader(),
+              const SizedBox(height: 24),
+              _isLoadingStats ? const Center(child: CircularProgressIndicator()) : _buildStatsGrid(),
+              const SizedBox(height: 24),
+              const Text('Pending Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+              const SizedBox(height: 16),
+              _buildUnifiedPendingRequestsStream(),
+              const SizedBox(height: 24),
+              const Text('AI Insights & Analytics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+              const SizedBox(height: 16),
+              _buildAIInsightsCard(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatsGrid() {
+    return GridView.count(
+      shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.5,
+      children: [
+        _statCard('$_totalClubs', 'Total Clubs', Icons.dashboard_customize_rounded),
+        _statCard('$_totalStudents', 'Total Students', Icons.groups_rounded),
+        _statCard('$_activeEvents', 'Active Events', Icons.event_available_rounded),
+        _statCard('$_eventsHeld', 'Events Held', Icons.event_note_rounded),
+      ],
+    );
+  }
+
+  Widget _statCard(String value, String title, IconData icon) {
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)]),
+      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, color: const Color(0xFF81B8E8), size: 28),
+        const SizedBox(height: 8),
+        Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
+        Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+      ]),
+    );
+  }
+
+  Widget _buildUnifiedPendingRequestsStream() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('notifications').where('targetRole', isEqualTo: 'admin').where('type', whereIn: ['club_request', 'new_club_request']).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const SizedBox.shrink();
+        final requests = snapshot.data!.docs;
+        return ListView.builder(
+          shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+          itemCount: requests.length,
+          itemBuilder: (context, i) {
+            var data = requests[i].data() as Map<String, dynamic>;
+            return _actionCard(requests[i].id, data);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _actionCard(String notificationId, Map<String, dynamic> data) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(data['title'] ?? 'Request', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)), Text(data['message'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.grey))])),
+        Row(children: [IconButton(icon: const Icon(Icons.check_circle, color: Colors.green), onPressed: () => _handleQuickAction(notificationId, data, true)), IconButton(icon: const Icon(Icons.cancel, color: Colors.red), onPressed: () => _handleQuickAction(notificationId, data, false))])
+      ]),
+    );
+  }
+
+  Widget _buildAIInsightsCard() {
+    if (_isLoadingInsights) return const Center(child: CircularProgressIndicator());
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)]
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Club Health Score (AI)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2C3E50))),
+          const SizedBox(height: 16),
+          if (_aiInsights.isEmpty)
+            const Text("No sufficient data yet.", style: TextStyle(color: Colors.grey, fontSize: 12))
+          else
+            ..._aiInsights.map((club) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ClubFeedbackScreen(
+                                clubName: club['name'],
+                                clubId: club['id'], // MODIFICATION 2: Passing the clubId to the next screen
+                              ),
+                            ),
+                          );
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              club['name'],
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Color(0xFF1E3A8A),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_right_rounded, size: 16, color: Colors.grey),
+                          ],
+                        ),
+                      ),
+                      Text(club['status'], style: TextStyle(color: club['color'], fontWeight: FontWeight.bold, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: club['healthScore'],
+                      backgroundColor: Colors.grey[100],
+                      valueColor: AlwaysStoppedAnimation<Color>(club['color']),
+                      minHeight: 6,
+                    ),
+                  )
+                ],
+              ),
+            )),
+        ],
+      ),
+    );
   }
 
   Future<void> _handleQuickAction(String notificationId, Map<String, dynamic> data, bool isApproved) async {
@@ -212,173 +407,122 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
       debugPrint("Error: $e");
     }
   }
+}
+
+// ==========================================
+// MODIFICATION 3: The Smart Club Feedback Screen
+// ==========================================
+class ClubFeedbackScreen extends StatefulWidget {
+  final String clubName;
+  final String clubId;
+
+  const ClubFeedbackScreen({super.key, required this.clubName, required this.clubId});
+
+  @override
+  State<ClubFeedbackScreen> createState() => _ClubFeedbackScreenState();
+}
+
+class _ClubFeedbackScreenState extends State<ClubFeedbackScreen> {
+
+  // This function acts as the "Bridge". It gets the events for the club, then gets the feedback for those events.
+  Future<List<Map<String, dynamic>>> _fetchFeedbackReliably() async {
+    final db = FirebaseFirestore.instance;
+    try {
+      // Step 1: Get all events belonging to this specific club using the passed clubId
+      final eventsSnap = await db.collection('events').where('clubId', isEqualTo: widget.clubId).get();
+      if (eventsSnap.docs.isEmpty) return [];
+
+      final Set<String> eventIds = eventsSnap.docs.map((doc) => doc.id).toSet();
+
+      // Step 2: Get all feedback and filter where eventId is in our list
+      final feedbackSnap = await db.collection('feedback').get();
+      final matchedFeedback = feedbackSnap.docs.where((doc) {
+        final data = doc.data();
+        final fEventId = data['eventId'] ?? '';
+        return eventIds.contains(fEventId);
+      }).map((doc) => doc.data()).toList();
+
+      return matchedFeedback;
+    } catch (e) {
+      debugPrint("Error fetching feedback: $e");
+      return [];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(color: Color(0xFFF4F8FB)),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const AdminHeader(),
-              const SizedBox(height: 24),
-              _isLoadingStats ? const Center(child: CircularProgressIndicator(color: Color(0xFF3674B5))) : _buildStatsGrid(),
-              const SizedBox(height: 24),
-              const Text('AI Insights & Analytics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-              const SizedBox(height: 16),
-              _buildSentimentCard(),
-              const SizedBox(height: 16),
-              _buildAttendancePredictionCard(),
-              const SizedBox(height: 24),
-              const Text('Pending Actions', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-              const SizedBox(height: 16),
-              _buildUnifiedPendingRequestsStream(),
-            ],
-          ),
-        ),
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F8FB),
+      appBar: AppBar(
+        title: Text('${widget.clubName} Feedback',
+            style: const TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Color(0xFF1E3A8A)),
+      ),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _fetchFeedbackReliably(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF3674B5)));
+          }
+
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return _buildEmptyState();
+          }
+
+          final docs = snapshot.data!;
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(20),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final data = docs[index];
+              return _buildFeedbackCard(data);
+            },
+          );
+        },
       ),
     );
   }
 
-  Widget _buildStatsGrid() {
-    return GridView.count(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisCount: 2,
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 1.5,
-      children: [
-        _statCard('$_totalClubs', 'Total Clubs', Icons.dashboard_customize_rounded),
-        _statCard('$_totalStudents', 'Total Students', Icons.groups_rounded),
-        _statCard('$_activeEvents', 'Active Events', Icons.event_available_rounded),
-        _statCard('$_eventsHeld', 'Events Held', Icons.event_note_rounded),
-      ],
-    );
-  }
-
-  Widget _statCard(String value, String title, IconData icon) {
+  Widget _buildFeedbackCard(Map<String, dynamic> data) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))]),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: const Color(0xFF81B8E8), size: 28),
-          const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50))),
-          Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-        ],
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-    );
-  }
-
-  Widget _buildSentimentCard() {
-    if (_isLoadingSentiment) return const Center(child: CircularProgressIndicator(color: Color(0xFF3674B5)));
-    if (_positivePct == 0 && _neutralPct == 0 && _negativePct == 0) {
-      return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)), child: const Center(child: Text("No feedback data available yet.", style: TextStyle(color: Colors.grey))));
-    }
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)]),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('Event Sentiment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text('See Details', style: TextStyle(color: Colors.blue, fontSize: 12)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 140,
-            child: PieChart(
-              PieChartData(
-                sectionsSpace: 4,
-                centerSpaceRadius: 45,
-                sections: [
-                  if (_positivePct > 0) PieChartSectionData(value: _positivePct, color: const Color(0xFF2ECC71), title: '', radius: 25),
-                  if (_neutralPct > 0) PieChartSectionData(value: _neutralPct, color: const Color(0xFFBDC3C7), title: '', radius: 25),
-                  if (_negativePct > 0) PieChartSectionData(value: _negativePct, color: const Color(0xFFE74C3C), title: '', radius: 25),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _sentimentLegend(const Color(0xFF2ECC71), 'Positive\n${_positivePct.toInt()}%'),
-              _sentimentLegend(const Color(0xFFBDC3C7), 'Neutral\n${_neutralPct.toInt()}%'),
-              _sentimentLegend(const Color(0xFFE74C3C), 'Negative\n${_negativePct.toInt()}%'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sentimentLegend(Color color, String text) {
-    return Row(children: [Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: color)), const SizedBox(width: 6), Text(text, style: TextStyle(fontSize: 11, color: Colors.grey[700], height: 1.3))]);
-  }
-
-  Widget _buildAttendancePredictionCard() {
-    if (_isLoadingAttendance) return const Center(child: CircularProgressIndicator(color: Color(0xFF3674B5)));
-    if (_attendanceData.isEmpty) {
-      return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)), child: const Center(child: Text("No attendance data to predict yet.", style: TextStyle(color: Colors.grey))));
-    }
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10)]),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Attendance Prediction Accuracy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 180,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: 150,
-                barTouchData: BarTouchData(enabled: false),
-                titlesData: FlTitlesData(
-                  show: true,
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        int index = value.toInt();
-                        if (index >= _attendanceData.length) return const SizedBox.shrink();
-                        String title = _attendanceData[index]['title'].toString();
-                        List<String> words = title.split(' ');
-                        String shortTitle = words.length > 1 ? '${words[0]}\n${words[1]}' : words[0];
-                        return Padding(padding: const EdgeInsets.only(top: 8.0), child: Text(shortTitle, style: TextStyle(fontSize: 9, color: Colors.grey[600]), textAlign: TextAlign.center));
-                      },
-                    ),
-                  ),
-                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 30, interval: 50, getTitlesWidget: (value, meta) => Text('${value.toInt()}', style: TextStyle(fontSize: 10, color: Colors.grey[500])))),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(data['userName'] ?? 'Student',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E3A8A))),
+              _sentimentBadge(data['sentimentLabel'] ?? 'Neutral'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+              data['comment'] ?? data['text'] ?? '', // Supporting both 'text' and 'comment' fields
+              style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.4)
+          ),
+          const Divider(height: 24, color: Color(0xFFF4F8FB)),
+          Row(
+            children: [
+              const Icon(Icons.event_note_rounded, size: 14, color: Colors.grey),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Event: ${data['eventTitle'] ?? data['eventName'] ?? 'Unknown'}',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
                 ),
-                gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey[200], strokeWidth: 1, dashArray: [4, 4])),
-                borderData: FlBorderData(show: false),
-                barGroups: List.generate(_attendanceData.length, (index) {
-                  return _makeBarData(index, _attendanceData[index]['predicted'], _attendanceData[index]['actual']);
-                }),
               ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _sentimentLegend(const Color(0xFFA1E3F9), 'Predicted'),
-              const SizedBox(width: 20),
-              _sentimentLegend(const Color(0xFF2C3E50), 'Actual'),
             ],
           ),
         ],
@@ -386,82 +530,28 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
-  BarChartGroupData _makeBarData(int x, double predicted, double actual) {
-    return BarChartGroupData(
-      x: x,
-      barRods: [
-        BarChartRodData(toY: predicted, color: const Color(0xFFA1E3F9), width: 14, borderRadius: BorderRadius.circular(4)),
-        BarChartRodData(toY: actual, color: const Color(0xFF2C3E50), width: 14, borderRadius: BorderRadius.circular(4)),
-      ],
-    );
-  }
+  Widget _sentimentBadge(String label) {
+    Color color = Colors.orange;
+    if (label.toLowerCase().contains('positive')) color = Colors.green;
+    if (label.toLowerCase().contains('negative')) color = Colors.red;
 
-  Widget _buildUnifiedPendingRequestsStream() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('notifications')
-          .where('targetRole', isEqualTo: 'admin')
-          .where('type', whereIn: ['club_request', 'new_club_request'])
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.all(20),
-            width: double.infinity,
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-            child: const Center(child: Text('No pending actions', style: TextStyle(color: Colors.grey))),
-          );
-        }
-
-        final requests = snapshot.data!.docs;
-
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: requests.length,
-          itemBuilder: (context, index) {
-            var doc = requests[index];
-            var data = doc.data() as Map<String, dynamic>;
-            return _actionCard(data['title'] ?? 'Request', data['message'] ?? '', () => _handleQuickAction(doc.id, data, true), () => _handleQuickAction(doc.id, data, false));
-          },
-        );
-      },
-    );
-  }
-
-  Widget _actionCard(String title, String subtitle, VoidCallback onApprove, VoidCallback onReject) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8)]),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50), height: 1.4)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
-              ],
-            ),
-          ),
-          Row(
-            children: [
-              InkWell(onTap: onApprove, child: _actionButton(Icons.check, Colors.green)),
-              const SizedBox(width: 8),
-              InkWell(onTap: onReject, child: _actionButton(Icons.close, Colors.red)),
-            ],
-          )
-        ],
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+      child: Text(label.toUpperCase(), style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _actionButton(IconData icon, Color color) {
-    return Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: color, shape: BoxShape.circle), child: Icon(icon, color: Colors.white, size: 16));
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline_rounded, size: 60, color: Colors.grey.withValues(alpha: 0.2)),
+          const SizedBox(height: 16),
+          Text("No feedback yet for ${widget.clubName}", style: const TextStyle(color: Colors.grey)),
+        ],
+      ),
+    );
   }
 }

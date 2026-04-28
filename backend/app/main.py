@@ -4,8 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import google.generativeai as genai
+import firebase_admin
+from firebase_admin import credentials, firestore
 from app.chat_service import *
 import os
+import json
 from app.ai.attendance_predictor import AttendancePredictor
 
 
@@ -13,15 +16,22 @@ load_dotenv()
 attendance_predictor = AttendancePredictor()
 
 
+if not firebase_admin._apps:
+    cred = credentials.Certificate("serviceAccountKey.json")
+    firebase_admin.initialize_app(cred)
+
+db = firestore.client()
+
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-flash-latest")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Pre-load models on startup so the first request is fast
     try:
         from app.ai.recommender import _load_models
         _load_models()
-        print("✅ Recommendation models loaded.")
-    except Exception as e:
-        print(f"⚠️  Could not pre-load models: {e}")
+    except Exception:
+        pass
     yield
 
 app = FastAPI(title="UniClubs API", version="1.0.0", lifespan=lifespan)
@@ -36,17 +46,42 @@ app.add_middleware(
 from app.routes import recommendations
 app.include_router(recommendations.router, prefix="/api")
 
-@app.get("/")
-def root():
-    return {"status": "UniClubs API is running"}
-
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-flash-latest")
-
 class Message(BaseModel):
     message: str
     user_id: str
 
+class FeedbackAnalysis(BaseModel):
+    feedback_id: str
+    text: str
+
+@app.get("/")
+def root():
+    return {"status": "UniClubs API is running"}
+
+@app.post("/analyze-sentiment")
+async def analyze_sentiment(data: FeedbackAnalysis):
+    try:
+        prompt = f"""
+        Analyze the sentiment of this student feedback about a university event.
+        Classify it as 'Positive', 'Negative', or 'Neutral'.
+        Return the result as JSON with keys: 'label' and 'score' (score between 0 and 1).
+        Feedback: "{data.text}"
+        """
+
+        response = model.generate_content(prompt)
+
+        result_text = response.text.replace("```json", "").replace("```", "").strip()
+        result_data = json.loads(result_text)
+
+        doc_ref = db.collection('feedback').document(data.feedback_id)
+        doc_ref.update({
+            'sentimentLabel': result_data.get('label', 'Neutral'),
+            'sentimentScore': result_data.get('score', 0.5)
+        })
+
+        return {"status": "success", "analysis": result_data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/chat")
 def chat(data: Message):
@@ -54,23 +89,15 @@ def chat(data: Message):
         history = get_history(data.user_id)
         prompt = f"""
         You are UniClubs Assistant.
-
-        Help student with:
-        - finding clubs
-        - event registration
-        - app navigation
-        - university activities
-
+        Help student with: finding clubs, event registration, app navigation, university activities.
         Previous conversation: {history}
         User question: {data.message}"""
 
-
         response = model.generate_content(prompt)
-        ai_reply =response.text or "No response"
+        ai_reply = response.text or "No response"
 
         save_message(data.user_id, "user", data.message)
         save_message(data.user_id, "ai", ai_reply)
-
 
         return {"response": ai_reply}
     except Exception as e:

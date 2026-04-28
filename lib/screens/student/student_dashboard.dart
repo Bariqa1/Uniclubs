@@ -927,18 +927,29 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: media.length,
-                itemBuilder: (_, i) => Container(
-                  width: 110,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFA1E3F9).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(10),
-                    image: DecorationImage(
-                      image: NetworkImage(media[i] as String),
-                      fit: BoxFit.cover,
+                itemBuilder: (_, i) {
+                  // التأكد إن الرابط مو فاضي
+                  final String imageUrl = media[i] != null ? media[i].toString().trim() : '';
+                  final bool hasValidImage = imageUrl.isNotEmpty;
+
+                  return Container(
+                    width: 110,
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFA1E3F9).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(10),
+                      image: hasValidImage
+                          ? DecorationImage(
+                        image: NetworkImage(imageUrl),
+                        fit: BoxFit.cover,
+                      )
+                          : null,
                     ),
-                  ),
-                ),
+                    child: !hasValidImage
+                        ? const Center(child: Icon(Icons.broken_image, color: Colors.grey))
+                        : null,
+                  );
+                },
               ),
             ),
           ],

@@ -1,6 +1,5 @@
 from app.utils.firebase_config import get_db
 from datetime import datetime
-from google.cloud.firestore_v1.base_query import FieldFilter
 from google.cloud.firestore_v1 import Query
 
 def save_message(user_id, role, text):
@@ -29,7 +28,8 @@ def get_history(user_id):
         data = doc.to_dict()
         ts = data.get("timestamp")
         history.append({
-            "text": data["text"],
+            "content": data["text"],
+            "role": data["role"],
             "userId": user_id if data["role"] == "user" else "0",
             "userName": "AI Assistant" if data["role"] =="ai" else "User",
             "createdAt": ts.isoformat() if ts else ""

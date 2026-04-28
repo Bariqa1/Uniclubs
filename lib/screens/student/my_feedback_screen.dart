@@ -119,10 +119,8 @@ class _MyFeedbackScreenState extends State<MyFeedbackScreen> {
   }
 
   Widget _buildFeedbackCard(Map<String, dynamic> feedback) {
-    final int rating = feedback['rating'] ?? 0;
-    final String comment = feedback['comment'] ?? '';
+    final String comment = feedback['text'] ?? feedback['comment'] ?? 'No comment provided.';
     final String eventTitle = feedback['eventTitle'] ?? 'Unknown Event';
-    final String? sentimentLabel = feedback['sentimentLabel'];
 
     String formattedDate = '';
     final createdAt = feedback['createdAt'];
@@ -134,7 +132,7 @@ class _MyFeedbackScreenState extends State<MyFeedbackScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -149,104 +147,63 @@ class _MyFeedbackScreenState extends State<MyFeedbackScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Event title + date row
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFA1E3F9).withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.event_note, color: Color(0xFF3674B5), size: 20),
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  eventTitle,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF3674B5),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      eventTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF3674B5),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    if (formattedDate.isNotEmpty)
+                      Text(
+                        formattedDate,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: const Color(0xFF578FCA).withOpacity(0.7),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (formattedDate.isNotEmpty)
-                Text(
-                  formattedDate,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: const Color(0xFF578FCA).withOpacity(0.7),
-                  ),
-                ),
             ],
           ),
-          const SizedBox(height: 10),
-          // Star rating
-          Row(
-            children: List.generate(5, (i) {
-              return Icon(
-                i < rating ? Icons.star_rounded : Icons.star_outline_rounded,
-                size: 20,
-                color: i < rating ? const Color(0xFFF5A623) : Colors.grey[300],
-              );
-            }),
-          ),
-          if (comment.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F9FF),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
               comment,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey[700],
-                height: 1.4,
+                height: 1.5,
+                color: const Color(0xFF3674B5).withOpacity(0.9),
               ),
             ),
-          ],
-          if (sentimentLabel != null) ...[
-            const SizedBox(height: 12),
-            _buildSentimentBadge(sentimentLabel),
-          ],
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSentimentBadge(String label) {
-    Color color;
-    IconData icon;
-    switch (label.toLowerCase()) {
-      case 'positive':
-        color = Colors.green;
-        icon = Icons.sentiment_satisfied_alt_rounded;
-        break;
-      case 'negative':
-        color = Colors.red;
-        icon = Icons.sentiment_dissatisfied_rounded;
-        break;
-      default:
-        color = Colors.orange;
-        icon = Icons.sentiment_neutral_rounded;
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 14, color: color),
-              const SizedBox(width: 4),
-              Text(
-                label[0].toUpperCase() + label.substring(1),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 

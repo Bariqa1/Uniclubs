@@ -12,3 +12,9 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# =========================
+# Secret Files (AI & Firebase)
+# =========================
+.env
+serviceAccountKey.json

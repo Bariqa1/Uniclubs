@@ -25,7 +25,7 @@ class FirestoreService {
         return data;
       }).toList();
     } catch (e) {
-      print('Error getting upcoming events: $e');
+      debugPrint('Error getting upcoming events: $e');
       return [];
     }
   }
@@ -42,14 +42,14 @@ class FirestoreService {
 
       return snapshot.docs
           .map((doc) {
-            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-            data['id'] = doc.id;
-            return data;
-          })
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      })
           .where((data) => data['status'] != 'cancelled')
           .toList();
     } catch (e) {
-      print('Error getting past events: $e');
+      debugPrint('Error getting past events: $e');
       return [];
     }
   }
@@ -57,8 +57,6 @@ class FirestoreService {
   /// Search events by title or category
   Future<List<Map<String, dynamic>>> searchEvents(String query) async {
     try {
-      // Note: For production, use Algolia or similar for better search
-      // This is a simple firestore query limitation workaround
       QuerySnapshot snapshot = await _firestore
           .collection('events')
           .where('status', isEqualTo: 'upcoming')
@@ -66,20 +64,20 @@ class FirestoreService {
 
       return snapshot.docs
           .where((doc) {
-            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-            String title = data['title']?.toLowerCase() ?? '';
-            String category = data['category']?.toLowerCase() ?? '';
-            String searchQuery = query.toLowerCase();
-            return title.contains(searchQuery) || category.contains(searchQuery);
-          })
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        String title = data['title']?.toLowerCase() ?? '';
+        String category = data['category']?.toLowerCase() ?? '';
+        String searchQuery = query.toLowerCase();
+        return title.contains(searchQuery) || category.contains(searchQuery);
+      })
           .map((doc) {
-            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-            data['id'] = doc.id;
-            return data;
-          })
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      })
           .toList();
     } catch (e) {
-      print('Error searching events: $e');
+      debugPrint('Error searching events: $e');
       return [];
     }
   }
@@ -100,7 +98,7 @@ class FirestoreService {
         return data;
       }).toList();
     } catch (e) {
-      print('Error getting events by category: $e');
+      debugPrint('Error getting events by category: $e');
       return [];
     }
   }
@@ -109,7 +107,7 @@ class FirestoreService {
   Future<Map<String, dynamic>?> getEvent(String eventId) async {
     try {
       DocumentSnapshot doc = await _firestore.collection('events').doc(eventId).get();
-      
+
       if (doc.exists) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
@@ -117,7 +115,7 @@ class FirestoreService {
       }
       return null;
     } catch (e) {
-      print('Error getting event: $e');
+      debugPrint('Error getting event: $e');
       return null;
     }
   }
@@ -142,7 +140,7 @@ class FirestoreService {
         return data;
       }).toList();
     } catch (e) {
-      print('Error getting clubs: $e');
+      debugPrint('Error getting clubs: $e');
       return [];
     }
   }
@@ -163,7 +161,7 @@ class FirestoreService {
         return data;
       }).toList();
     } catch (e) {
-      print('Error getting clubs by category: $e');
+      debugPrint('Error getting clubs by category: $e');
       return [];
     }
   }
@@ -178,18 +176,18 @@ class FirestoreService {
 
       return snapshot.docs
           .where((doc) {
-            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-            String name = data['name']?.toLowerCase() ?? '';
-            return name.contains(query.toLowerCase());
-          })
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        String name = data['name']?.toLowerCase() ?? '';
+        return name.contains(query.toLowerCase());
+      })
           .map((doc) {
-            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-            data['id'] = doc.id;
-            return data;
-          })
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      })
           .toList();
     } catch (e) {
-      print('Error searching clubs: $e');
+      debugPrint('Error searching clubs: $e');
       return [];
     }
   }
@@ -198,7 +196,7 @@ class FirestoreService {
   Future<Map<String, dynamic>?> getClub(String clubId) async {
     try {
       DocumentSnapshot doc = await _firestore.collection('clubs').doc(clubId).get();
-      
+
       if (doc.exists) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
@@ -206,7 +204,7 @@ class FirestoreService {
       }
       return null;
     } catch (e) {
-      print('Error getting club: $e');
+      debugPrint('Error getting club: $e');
       return null;
     }
   }
@@ -219,7 +217,7 @@ class FirestoreService {
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
     try {
       DocumentSnapshot doc = await _firestore.collection('users').doc(userId).get();
-      
+
       if (doc.exists) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
@@ -227,18 +225,18 @@ class FirestoreService {
       }
       return null;
     } catch (e) {
-      print('Error getting user profile: $e');
+      debugPrint('Error getting user profile: $e');
       return null;
     }
   }
 
-  /// Update user profile fields (name, bio, phone, etc.)
+  /// Update user profile fields
   Future<bool> updateUserProfile(String userId, Map<String, dynamic> data) async {
     try {
       await _firestore.collection('users').doc(userId).update(data);
       return true;
     } catch (e) {
-      print('Error updating user profile: $e');
+      debugPrint('Error updating user profile: $e');
       return false;
     }
   }
@@ -251,7 +249,7 @@ class FirestoreService {
       });
       return true;
     } catch (e) {
-      print('Error updating interests: $e');
+      debugPrint('Error updating interests: $e');
       return false;
     }
   }
@@ -260,7 +258,7 @@ class FirestoreService {
   // REGISTRATIONS
   // ============================================
 
-  /// Get user's event registrations (registered + attended, excludes cancelled)
+  /// Get user's event registrations
   Future<List<Map<String, dynamic>>> getUserRegistrations(String userId) async {
     try {
       QuerySnapshot snapshot = await _firestore
@@ -296,7 +294,6 @@ class FirestoreService {
   /// Register for event
   Future<Map<String, dynamic>> registerForEvent(String userId, String eventId) async {
     try {
-      // Check if already registered (ignore cancelled registrations)
       QuerySnapshot existing = await _firestore
           .collection('registrations')
           .where('userId', isEqualTo: userId)
@@ -305,13 +302,9 @@ class FirestoreService {
           .get();
 
       if (existing.docs.isNotEmpty) {
-        return {
-          'success': false,
-          'message': 'Already registered for this event',
-        };
+        return {'success': false, 'message': 'Already registered for this event'};
       }
 
-      // Check event validity (status, date, deadline, capacity)
       DocumentSnapshot eventDoc = await _firestore.collection('events').doc(eventId).get();
       Map<String, dynamic> eventData = eventDoc.data() as Map<String, dynamic>;
 
@@ -333,13 +326,9 @@ class FirestoreService {
       int currentRegistrations = eventData['currentRegistrations'] ?? 0;
 
       if (currentRegistrations >= capacity) {
-        return {
-          'success': false,
-          'message': 'Event is full',
-        };
+        return {'success': false, 'message': 'Event is full'};
       }
 
-      // Create registration
       await _firestore.collection('registrations').add({
         'userId': userId,
         'eventId': eventId,
@@ -347,26 +336,18 @@ class FirestoreService {
         'registeredAt': FieldValue.serverTimestamp(),
       });
 
-      // Increment event registration count
       await _firestore.collection('events').doc(eventId).update({
         'currentRegistrations': FieldValue.increment(1),
       });
 
-      return {
-        'success': true,
-        'message': 'Successfully registered for event!',
-      };
+      return {'success': true, 'message': 'Successfully registered for event!'};
     } catch (e) {
-      print('Error registering for event: $e');
-      return {
-        'success': false,
-        'message': 'Failed to register. Please try again.',
-      };
+      debugPrint('Error registering for event: $e');
+      return {'success': false, 'message': 'Failed to register. Please try again.'};
     }
   }
 
-  /// Get all registrants for an event (leader use) — excludes cancelled registrations.
-  /// Returns list with keys: registrationId, userId, userName, userEmail, status, registeredAt, attendedAt
+  /// Get all registrants for an event
   Future<List<Map<String, dynamic>>> getEventRegistrants(String eventId) async {
     try {
       final snap = await _firestore
@@ -378,7 +359,7 @@ class FirestoreService {
       for (final doc in snap.docs) {
         final data = doc.data();
         final status = data['status'] ?? 'registered';
-        if (status == 'cancelled') continue; // skip cancelled client-side
+        if (status == 'cancelled') continue;
         final userData = await getUserProfile(data['userId'] ?? '');
         result.add({
           'registrationId': doc.id,
@@ -388,39 +369,60 @@ class FirestoreService {
           'status': status,
           'registeredAt': data['registeredAt'],
           'attendedAt': data['attendedAt'],
+          'eventId': data['eventId'], // Added eventId here
         });
       }
       return result;
     } catch (e) {
-      print('Error getting event registrants: $e');
+      debugPrint('Error getting event registrants: $e');
       return [];
     }
   }
 
-  /// Mark a registration as attended (leader use)
-  Future<bool> markAttended(String registrationId) async {
+  /// Mark a registration as attended
+  Future<bool> markAttended(String registrationId, String eventId) async {
     try {
-      await _firestore.collection('registrations').doc(registrationId).update({
+      final batch = _firestore.batch();
+      
+      // Update registration status
+      batch.update(_firestore.collection('registrations').doc(registrationId), {
         'status': 'attended',
         'attendedAt': FieldValue.serverTimestamp(),
       });
+
+      // Increment actual attendance in events collection
+      batch.update(_firestore.collection('events').doc(eventId), {
+        'actualAttendance': FieldValue.increment(1),
+      });
+
+      await batch.commit();
       return true;
     } catch (e) {
-      print('Error marking attended: $e');
+      debugPrint('Error marking attended: $e');
       return false;
     }
   }
 
-  /// Unmark attendance — revert back to registered (leader use)
-  Future<bool> unmarkAttended(String registrationId) async {
+  /// Unmark attendance
+  Future<bool> unmarkAttended(String registrationId, String eventId) async {
     try {
-      await _firestore.collection('registrations').doc(registrationId).update({
+      final batch = _firestore.batch();
+
+      // Update registration status back to registered
+      batch.update(_firestore.collection('registrations').doc(registrationId), {
         'status': 'registered',
         'attendedAt': FieldValue.delete(),
       });
+
+      // Decrement actual attendance in events collection
+      batch.update(_firestore.collection('events').doc(eventId), {
+        'actualAttendance': FieldValue.increment(-1),
+      });
+
+      await batch.commit();
       return true;
     } catch (e) {
-      print('Error unmarking attended: $e');
+      debugPrint('Error unmarking attended: $e');
       return false;
     }
   }
@@ -436,32 +438,21 @@ class FirestoreService {
           .get();
 
       if (snapshot.docs.isEmpty) {
-        return {
-          'success': false,
-          'message': 'Registration not found',
-        };
+        return {'success': false, 'message': 'Registration not found'};
       }
 
-      // Update registration status
       await _firestore.collection('registrations').doc(snapshot.docs.first.id).update({
         'status': 'cancelled',
       });
 
-      // Decrement event registration count
       await _firestore.collection('events').doc(eventId).update({
         'currentRegistrations': FieldValue.increment(-1),
       });
 
-      return {
-        'success': true,
-        'message': 'Registration cancelled successfully',
-      };
+      return {'success': true, 'message': 'Registration cancelled successfully'};
     } catch (e) {
-      print('Error cancelling registration: $e');
-      return {
-        'success': false,
-        'message': 'Failed to cancel. Please try again.',
-      };
+      debugPrint('Error cancelling registration: $e');
+      return {'success': false, 'message': 'Failed to cancel. Please try again.'};
     }
   }
 
@@ -469,7 +460,7 @@ class FirestoreService {
   // FEEDBACK
   // ============================================
 
-  /// Count how many feedback docs this user has submitted (no composite index needed)
+  /// Count how many feedback docs this user has submitted
   Future<int> getFeedbackCount(String userId) async {
     try {
       final snap = await _firestore
@@ -499,13 +490,15 @@ class FirestoreService {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['feedbackId'] = doc.id;
 
-        // Attach event title
-        String eventId = data['eventId'] ?? '';
-        if (eventId.isNotEmpty) {
-          Map<String, dynamic>? eventData = await getEvent(eventId);
-          data['eventTitle'] = eventData?['title'] ?? 'Unknown Event';
+        if (data.containsKey('eventTitle') && data['eventTitle'] != null) {
         } else {
-          data['eventTitle'] = 'Unknown Event';
+          String eventId = data['eventId'] ?? '';
+          if (eventId.isNotEmpty) {
+            Map<String, dynamic>? eventData = await getEvent(eventId);
+            data['eventTitle'] = eventData?['title'] ?? 'Unknown Event';
+          } else {
+            data['eventTitle'] = 'Unknown Event';
+          }
         }
 
         feedbackList.add(data);
@@ -513,7 +506,27 @@ class FirestoreService {
 
       return feedbackList;
     } catch (e) {
-      print('Error getting user feedback: $e');
+      debugPrint('Error getting user feedback: $e');
+      return [];
+    }
+  }
+
+  /// Get feedback for a specific event
+  Future<List<Map<String, dynamic>>> getEventFeedback(String eventId) async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection('feedback')
+          .where('eventId', isEqualTo: eventId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+        data['feedbackId'] = doc.id;
+        return data;
+      }).toList();
+    } catch (e) {
+      debugPrint('Error getting event feedback: $e');
       return [];
     }
   }
@@ -570,15 +583,14 @@ class FirestoreService {
           .where('status', isEqualTo: 'approved')
           .get();
 
-      // Get full club details
       List<Map<String, dynamic>> clubs = [];
-      
+
       for (var doc in snapshot.docs) {
         Map<String, dynamic> memberData = doc.data() as Map<String, dynamic>;
         String clubId = memberData['clubId'];
-        
+
         Map<String, dynamic>? clubData = await getClub(clubId);
-        
+
         if (clubData != null) {
           clubData['membershipId'] = doc.id;
           clubData['joinedAt'] = memberData['approvedAt'];
@@ -588,12 +600,12 @@ class FirestoreService {
 
       return clubs;
     } catch (e) {
-      print('Error getting user clubs: $e');
+      debugPrint('Error getting user clubs: $e');
       return [];
     }
   }
 
-  /// Get membership status for a user in a club: 'none' | 'pending' | 'approved' | 'rejected'
+  /// Get membership status for a user in a club
   Future<String> getMembershipStatus(String userId, String clubId) async {
     try {
       QuerySnapshot snap = await _firestore
@@ -635,12 +647,12 @@ class FirestoreService {
 
       return {'success': true, 'message': 'Membership request cancelled'};
     } catch (e) {
-      print('Error leaving club: $e');
+      debugPrint('Error leaving club: $e');
       return {'success': false, 'message': 'Failed. Please try again.'};
     }
   }
 
-  /// Get pending membership requests for a club (leader use)
+  /// Get pending membership requests for a club
   Future<List<Map<String, dynamic>>> getPendingRequests(String clubId) async {
     try {
       QuerySnapshot snap = await _firestore
@@ -660,12 +672,12 @@ class FirestoreService {
       }
       return requests;
     } catch (e) {
-      print('Error getting pending requests: $e');
+      debugPrint('Error getting pending requests: $e');
       return [];
     }
   }
 
-  /// Get approved members of a club (leader use)
+  /// Get approved members of a club
   Future<List<Map<String, dynamic>>> getClubMembers(String clubId) async {
     try {
       QuerySnapshot snap = await _firestore
@@ -685,12 +697,12 @@ class FirestoreService {
       }
       return members;
     } catch (e) {
-      print('Error getting club members: $e');
+      debugPrint('Error getting club members: $e');
       return [];
     }
   }
 
-  /// Approve a membership request (leader use)
+  /// Approve a membership request
   Future<Map<String, dynamic>> approveMembership(String membershipId, String clubId) async {
     try {
       await _firestore.collection('memberships').doc(membershipId).update({
@@ -702,12 +714,12 @@ class FirestoreService {
       });
       return {'success': true, 'message': 'Member approved!'};
     } catch (e) {
-      print('Error approving membership: $e');
+      debugPrint('Error approving membership: $e');
       return {'success': false, 'message': 'Failed to approve.'};
     }
   }
 
-  /// Reject a membership request (leader use)
+  /// Reject a membership request
   Future<Map<String, dynamic>> rejectMembership(String membershipId) async {
     try {
       await _firestore.collection('memberships').doc(membershipId).update({
@@ -715,12 +727,12 @@ class FirestoreService {
       });
       return {'success': true, 'message': 'Request rejected'};
     } catch (e) {
-      print('Error rejecting membership: $e');
+      debugPrint('Error rejecting membership: $e');
       return {'success': false, 'message': 'Failed to reject.'};
     }
   }
 
-  /// Remove an approved member from a club (leader use)
+  /// Remove an approved member from a club
   Future<Map<String, dynamic>> removeMember(String membershipId, String clubId) async {
     try {
       await _firestore.collection('memberships').doc(membershipId).delete();
@@ -729,7 +741,7 @@ class FirestoreService {
       });
       return {'success': true, 'message': 'Member removed'};
     } catch (e) {
-      print('Error removing member: $e');
+      debugPrint('Error removing member: $e');
       return {'success': false, 'message': 'Failed to remove member.'};
     }
   }
@@ -737,7 +749,6 @@ class FirestoreService {
   /// Request to join club
   Future<Map<String, dynamic>> joinClub(String userId, String clubId) async {
     try {
-      // Check if already a member or pending
       QuerySnapshot existing = await _firestore
           .collection('memberships')
           .where('userId', isEqualTo: userId)
@@ -747,21 +758,14 @@ class FirestoreService {
       if (existing.docs.isNotEmpty) {
         Map<String, dynamic> memberData = existing.docs.first.data() as Map<String, dynamic>;
         String status = memberData['status'];
-        
+
         if (status == 'approved') {
-          return {
-            'success': false,
-            'message': 'Already a member of this club',
-          };
+          return {'success': false, 'message': 'Already a member of this club'};
         } else if (status == 'pending') {
-          return {
-            'success': false,
-            'message': 'Membership request is pending approval',
-          };
+          return {'success': false, 'message': 'Membership request is pending approval'};
         }
       }
 
-      // Create membership request
       await _firestore.collection('memberships').add({
         'userId': userId,
         'clubId': clubId,
@@ -769,16 +773,10 @@ class FirestoreService {
         'requestedAt': FieldValue.serverTimestamp(),
       });
 
-      return {
-        'success': true,
-        'message': 'Membership request sent! Awaiting approval.',
-      };
+      return {'success': true, 'message': 'Membership request sent! Awaiting approval.'};
     } catch (e) {
-      print('Error joining club: $e');
-      return {
-        'success': false,
-        'message': 'Failed to join club. Please try again.',
-      };
+      debugPrint('Error joining club: $e');
+      return {'success': false, 'message': 'Failed to join club. Please try again.'};
     }
   }
 }

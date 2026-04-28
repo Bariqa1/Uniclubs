@@ -4,7 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:fl_chart/fl_chart.dart';
 
+// ==========================================
+// Admin Reports Screen
+// ==========================================
 class AdminReportsScreen extends StatefulWidget {
   const AdminReportsScreen({super.key});
 
@@ -40,37 +44,22 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
               ),
               const SizedBox(height: 20),
-
               _buildFilters(),
               const SizedBox(height: 24),
-
               _buildGenerateCard(),
               const SizedBox(height: 24),
-
               const Text(
                 'Analytics Categories',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
               ),
               const SizedBox(height: 16),
-
               _buildCategoriesGrid(),
-              const SizedBox(height: 24),
-
-              const Text(
-                'Recent Files',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
-              ),
-              const SizedBox(height: 16),
-
-              _buildRecentFilesList(),
             ],
           ),
         ),
       ),
     );
   }
-
-  // --- Filter Section ---
 
   Widget _buildFilters() {
     return Column(
@@ -91,7 +80,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           ),
         ),
         const SizedBox(height: 16),
-
         Container(
           width: double.infinity,
           decoration: BoxDecoration(
@@ -104,31 +92,13 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           child: DropdownMenu<String>(
             width: MediaQuery.of(context).size.width - 40,
             initialSelection: _selectedClub,
-            menuStyle: MenuStyle(
-              backgroundColor: WidgetStateProperty.all(Colors.white),
-              surfaceTintColor: WidgetStateProperty.all(Colors.white),
-              shape: WidgetStateProperty.all(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-            ),
+            onSelected: (value) => setState(() => _selectedClub = value!),
+            dropdownMenuEntries: clubs.map((club) => DropdownMenuEntry(value: club, label: club)).toList(),
             inputDecorationTheme: InputDecorationTheme(
               filled: true,
               fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(18),
-                borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-              ),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(18), borderSide: BorderSide.none),
             ),
-            textStyle: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF1E3A8A), fontSize: 14),
-            leadingIcon: const Icon(Icons.groups_rounded, color: Color(0xFF3674B5)),
-            trailingIcon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF3674B5)),
-            onSelected: (value) => setState(() => _selectedClub = value!),
-            dropdownMenuEntries: clubs.map((club) => DropdownMenuEntry(value: club, label: club)).toList(),
           ),
         ),
       ],
@@ -140,26 +110,17 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     return Expanded(
       child: GestureDetector(
         onTap: () => setState(() => _selectedPeriod = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+        child: Container(
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFF5B9FD8) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.white : Colors.grey[600],
-            ),
-          ),
+          child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.grey[600])),
         ),
       ),
     );
   }
-
-  // --- PDF Generation Card ---
 
   Widget _buildGenerateCard() {
     return Container(
@@ -168,51 +129,34 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3), width: 1.5),
-        boxShadow: [
-          BoxShadow(color: const Color(0xFF5B9FD8).withValues(alpha: 0.08), blurRadius: 15, spreadRadius: 2)
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.auto_awesome, color: Color(0xFF5B9FD8), size: 20),
+              Icon(Icons.analytics_outlined, color: Color(0xFF5B9FD8), size: 20),
               SizedBox(width: 8),
-              Text('AI Insights Report', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+              Text('Comprehensive Report', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
             ],
           ),
           const SizedBox(height: 12),
-          Text(
-            'Generate a comprehensive PDF including engagement summaries, sentiment analysis, and attendance predictions.',
-            style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.4),
-          ),
+          Text('Generate a detailed PDF including attendance, engagement, and AI sentiment analysis.', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             height: 55,
             child: ElevatedButton.icon(
               onPressed: _isGenerating ? null : _generateAndSharePDF,
-              icon: _isGenerating
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.picture_as_pdf_rounded, size: 20, color: Colors.white),
-              label: Text(
-                _isGenerating ? 'Processing...' : 'Export Comprehensive Report',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3674B5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
-              ),
+              icon: _isGenerating ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.picture_as_pdf_rounded, color: Colors.white),
+              label: Text(_isGenerating ? 'Processing...' : 'Export Full Report', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3674B5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
             ),
           ),
         ],
       ),
     );
   }
-
-  // --- Analytics Categories ---
 
   Widget _buildCategoriesGrid() {
     return GridView.count(
@@ -225,160 +169,384 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       children: [
         _categoryCard('Engagement', Icons.trending_up_rounded),
         _categoryCard('AI Sentiment', Icons.psychology_rounded),
+        _categoryCard('Attendance', Icons.people_alt_rounded),
         _categoryCard('Compliance', Icons.shield_outlined),
-        _categoryCard('Attendance', Icons.calendar_today_rounded),
       ],
     );
   }
 
   Widget _categoryCard(String title, IconData icon) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4))
-        ],
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.05)),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: const Color(0xFF5B9FD8), size: 32),
-          const SizedBox(height: 12),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A), fontSize: 13)),
-        ],
-      ),
-    );
-  }
-
-  // --- Recent Files (Firestore) ---
-
-  Widget _buildRecentFilesList() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('reports').orderBy('createdAt', descending: true).snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFF3674B5)));
-        }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No reports generated yet.', style: TextStyle(color: Colors.grey))));
-        }
-
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            var data = snapshot.data!.docs[index].data() as Map<String, dynamic>;
-            return _buildFileCard(snapshot.data!.docs[index].id, data);
-          },
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AnalyticsDetailScreen(
+              categoryTitle: title,
+              selectedClub: _selectedClub,
+              selectedPeriod: _selectedPeriod,
+            ),
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildFileCard(String docId, Map<String, dynamic> data) {
-    String fileName = data['fileName'] ?? 'Report.pdf';
-    String fileSize = data['fileSize'] ?? '1.2 MB';
-    String dateStr = data['createdAt'] != null ? DateFormat('MMM dd, yyyy').format((data['createdAt'] as Timestamp).toDate()) : '';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 12, offset: const Offset(0, 5))],
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.05)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFFFEF2F2), Color(0xFFFEE2E2)]),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.picture_as_pdf, color: Color(0xFFEF4444), size: 28),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(fileName, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A), fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Icon(Icons.storage_outlined, size: 12, color: Colors.grey[500]),
-                    const SizedBox(width: 4),
-                    Text(fileSize, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-                    const SizedBox(width: 12),
-                    Icon(Icons.event_outlined, size: 12, color: Colors.grey[500]),
-                    const SizedBox(width: 4),
-                    Text(dateStr, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          Column(
-            children: [
-              IconButton(icon: const Icon(Icons.download_for_offline_outlined, color: Color(0xFF5B9FD8), size: 24), onPressed: () {}, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-              const SizedBox(height: 8),
-              IconButton(icon: const Icon(Icons.delete_sweep_outlined, color: Color(0xFFEF4444), size: 24), onPressed: () => FirebaseFirestore.instance.collection('reports').doc(docId).delete(), padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-            ],
-          ),
-        ],
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8)],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: const Color(0xFF5B9FD8), size: 32),
+            const SizedBox(height: 12),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A), fontSize: 13)),
+          ],
+        ),
       ),
     );
   }
 
-  // --- PDF Core Logic ---
-
+  // ==========================================
+  // Comprehensive PDF Generation
+  // ==========================================
   Future<void> _generateAndSharePDF() async {
     setState(() => _isGenerating = true);
     try {
-      final pdf = pw.Document();
-      String dateStr = DateFormat('MMM dd, yyyy').format(DateTime.now());
-      String fileName = '${DateFormat('MMM_dd').format(DateTime.now())}_UniClubs_Report.pdf';
+      final db = FirebaseFirestore.instance;
+      Set<String> validEventIds = {};
+      bool filterByClub = _selectedClub != 'All Clubs';
+      DateTime now = DateTime.now();
+      DateTime filterDate = _selectedPeriod == 'month'
+          ? now.subtract(const Duration(days: 30))
+          : now.subtract(const Duration(days: 120));
 
+      // 1. Fetch Events & Calculate Attendance
+      double totalActual = 0;
+      double totalPredicted = 0;
+      int eventsCount = 0;
+
+      Query eventsQuery = db.collection('events');
+      if (filterByClub) {
+        final clubSnap = await db.collection('clubs').where('name', isEqualTo: _selectedClub).limit(1).get();
+        if (clubSnap.docs.isNotEmpty) {
+          eventsQuery = eventsQuery.where('clubId', isEqualTo: clubSnap.docs.first.id);
+        }
+      }
+
+      final eventsSnap = await eventsQuery.get();
+
+      for (var doc in eventsSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final Timestamp? eventDate = data['date'] as Timestamp?;
+
+        if (eventDate != null && eventDate.toDate().isAfter(filterDate)) {
+          validEventIds.add(doc.id);
+          eventsCount++;
+          totalActual += (data['actualAttendance'] as num? ?? 0).toDouble();
+          totalPredicted += (data['predictedAttendance'] as num? ?? 0).toDouble();
+        }
+      }
+
+      // 2. Fetch Feedback & Calculate Sentiment
+      int pos = 0, neg = 0, neu = 0;
+      if (validEventIds.isNotEmpty) {
+        final feedbackSnap = await db.collection('feedback').get();
+        for (var doc in feedbackSnap.docs) {
+          final data = doc.data();
+          final String fEventId = data['eventId'] ?? '';
+
+          if (validEventIds.contains(fEventId)) {
+            String label = (data['sentimentLabel'] ?? 'neutral').toString().toLowerCase();
+            if (label.contains('positive')) {
+              pos++;
+            } else if (label.contains('negative')) {
+              neg++;
+            } else {
+              neu++;
+            }
+          }
+        }
+      }
+
+      int totalFeedback = pos + neg + neu;
+      double attendanceRate = totalPredicted > 0 ? (totalActual / totalPredicted) * 100 : 0.0;
+      double satisfactionRate = totalFeedback > 0 ? (pos / totalFeedback) * 100 : 0.0;
+
+      // 3. Build PDF
+      final pdf = pw.Document();
       pdf.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
-          build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Center(child: pw.Text('UniClubs AI Analytics Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue900))),
-                pw.SizedBox(height: 10),
-                pw.Center(child: pw.Text('Generated on: $dateStr', style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey700))),
-                pw.Divider(thickness: 2, color: PdfColors.blueGrey100),
-                pw.SizedBox(height: 20),
-                pw.Text('1. Executive Summary', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
-                pw.SizedBox(height: 8),
-                pw.Text('This report covers analytical data for $_selectedClub during $_selectedPeriod.', style: const pw.TextStyle(fontSize: 12)),
-                pw.Spacer(),
-                pw.Center(child: pw.Text('Powered by Gemini AI - UniClubs Project', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey500, fontStyle: pw.FontStyle.italic)))
-              ],
-            );
-          },
+          build: (pw.Context context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Text('UniClubs Analytics Report', style: pw.TextStyle(fontSize: 26, fontWeight: pw.FontWeight.bold, color: const PdfColor(0.12, 0.23, 0.54))),
+              pw.Divider(thickness: 2),
+              pw.SizedBox(height: 10),
+              pw.Text('Target Scope: $_selectedClub', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+              pw.Text('Report Period: ${_selectedPeriod == 'month' ? 'Last 30 Days' : 'Current Semester'}', style: const pw.TextStyle(fontSize: 14)),
+              pw.SizedBox(height: 30),
+
+              // Section 1: Engagement
+              pw.Text('1. Engagement & Activity', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 10),
+              pw.Text('Total Events Held: $eventsCount'),
+              pw.Text('Total Student Footfall: ${totalActual.toInt()} attendees'),
+              pw.SizedBox(height: 20),
+
+              // Section 2: Attendance Performance
+              pw.Text('2. Attendance Performance', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 10),
+              pw.Text('Expected Attendance: ${totalPredicted.toInt()}'),
+              pw.Text('Actual Attendance: ${totalActual.toInt()}'),
+              pw.Text('Attendance Achievement Rate: ${attendanceRate.toStringAsFixed(1)}%', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 20),
+
+              // Section 3: Sentiment
+              pw.Text('3. AI Sentiment Analysis', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 10),
+              pw.Text('Total Feedback Received: $totalFeedback'),
+              pw.Bullet(text: 'Positive Reactions: $pos'),
+              pw.Bullet(text: 'Neutral Reactions: $neu'),
+              pw.Bullet(text: 'Negative Reactions: $neg'),
+              pw.SizedBox(height: 10),
+              pw.Text('Overall Satisfaction Rate: ${satisfactionRate.toStringAsFixed(1)}%', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: const PdfColor(0.18, 0.8, 0.44))),
+            ],
+          ),
         ),
       );
 
+      final fileName = 'UniClubs_Report_${DateFormat('MMM_dd').format(DateTime.now())}.pdf';
       await Printing.sharePdf(bytes: await pdf.save(), filename: fileName);
-      await FirebaseFirestore.instance.collection('reports').add({
-        'fileName': fileName,
-        'fileSize': '1.2 MB',
-        'type': 'comprehensive',
-        'createdAt': Timestamp.now(),
-      });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report generated successfully!'), backgroundColor: Colors.green));
+
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      debugPrint("PDF Generation Error: $e");
     }
-    if (mounted) setState(() => _isGenerating = false);
+    setState(() => _isGenerating = false);
+  }
+}
+
+// ==========================================
+// Dynamic Analytics Detail Screen (Charts)
+// ==========================================
+class AnalyticsDetailScreen extends StatefulWidget {
+  final String categoryTitle;
+  final String selectedClub;
+  final String selectedPeriod;
+
+  const AnalyticsDetailScreen({
+    super.key,
+    required this.categoryTitle,
+    required this.selectedClub,
+    required this.selectedPeriod,
+  });
+
+  @override
+  State<AnalyticsDetailScreen> createState() => _AnalyticsDetailScreenState();
+}
+
+class _AnalyticsDetailScreenState extends State<AnalyticsDetailScreen> {
+  bool _isLoading = true;
+
+  // Chart Data
+  int _pos = 0, _neg = 0, _neu = 0;
+  List<Map<String, dynamic>> _eventStats = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      final db = FirebaseFirestore.instance;
+      Set<String> validEventIds = {};
+      bool filterByClub = widget.selectedClub != 'All Clubs';
+      DateTime filterDate = widget.selectedPeriod == 'month'
+          ? DateTime.now().subtract(const Duration(days: 30))
+          : DateTime.now().subtract(const Duration(days: 120));
+
+      // Fetch Events
+      Query eventsQuery = db.collection('events');
+      if (filterByClub) {
+        final clubSnap = await db.collection('clubs').where('name', isEqualTo: widget.selectedClub).limit(1).get();
+        if (clubSnap.docs.isNotEmpty) {
+          eventsQuery = eventsQuery.where('clubId', isEqualTo: clubSnap.docs.first.id);
+        }
+      }
+
+      final eventsSnap = await eventsQuery.get();
+      List<Map<String, dynamic>> tempEvents = [];
+
+      for (var doc in eventsSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final Timestamp? eventDate = data['date'] as Timestamp?;
+
+        if (eventDate != null && eventDate.toDate().isAfter(filterDate)) {
+          validEventIds.add(doc.id);
+          tempEvents.add({
+            'title': data['title'] ?? 'Event',
+            'actual': (data['actualAttendance'] as num? ?? 0).toDouble(),
+            'predicted': (data['predictedAttendance'] as num? ?? 0).toDouble(),
+          });
+        }
+      }
+
+      // Fetch Feedback for Sentiment
+      if (widget.categoryTitle == 'AI Sentiment' && validEventIds.isNotEmpty) {
+        final feedbackSnap = await db.collection('feedback').get();
+        for (var doc in feedbackSnap.docs) {
+          final data = doc.data();
+          if (validEventIds.contains(data['eventId'] ?? '')) {
+            String label = (data['sentimentLabel'] ?? 'neutral').toString().toLowerCase();
+            if (label.contains('positive')) {
+              _pos++;
+            } else if (label.contains('negative')) {
+              _neg++;
+            } else {
+              _neu++;
+            }
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _eventStats = tempEvents.take(5).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F8FB),
+      appBar: AppBar(
+        title: Text('${widget.categoryTitle} Details', style: const TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF1E3A8A)),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF3674B5)))
+          : Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Showing data for ${widget.selectedClub}', style: const TextStyle(color: Colors.grey, fontSize: 14)),
+            const SizedBox(height: 24),
+            Expanded(child: _buildChart()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChart() {
+    if (widget.categoryTitle == 'AI Sentiment') {
+      if (_pos == 0 && _neg == 0 && _neu == 0) return const Center(child: Text("No sentiment data available."));
+      return Column(
+        children: [
+          SizedBox(
+            height: 250,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 50,
+                sections: [
+                  PieChartSectionData(color: Colors.green, value: _pos.toDouble(), title: 'Pos', radius: 60, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  PieChartSectionData(color: Colors.orange, value: _neu.toDouble(), title: 'Neu', radius: 55, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  PieChartSectionData(color: Colors.red, value: _neg.toDouble(), title: 'Neg', radius: 50, titleStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 40),
+          _buildLegendItem(Colors.green, 'Positive Feedback ($_pos)'),
+          const SizedBox(height: 8),
+          _buildLegendItem(Colors.orange, 'Neutral Feedback ($_neu)'),
+          const SizedBox(height: 8),
+          _buildLegendItem(Colors.red, 'Negative Feedback ($_neg)'),
+        ],
+      );
+    }
+
+    else if (widget.categoryTitle == 'Attendance' || widget.categoryTitle == 'Engagement') {
+      if (_eventStats.isEmpty) return const Center(child: Text("No event data available."));
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Actual vs Expected Attendance (Recent Events)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 24),
+          Expanded(
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: _eventStats.map((e) => e['predicted'] as double).reduce((a, b) => a > b ? a : b) + 20,
+                barTouchData: BarTouchData(enabled: true),
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        int index = value.toInt();
+                        if (index < 0 || index >= _eventStats.length) return const SizedBox.shrink();
+                        String title = _eventStats[index]['title'];
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(title.length > 5 ? '${title.substring(0,4)}..' : title, style: const TextStyle(fontSize: 10)),
+                        );
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                gridData: const FlGridData(show: false),
+                barGroups: List.generate(_eventStats.length, (i) {
+                  return BarChartGroupData(
+                    x: i,
+                    barRods: [
+                      BarChartRodData(toY: _eventStats[i]['actual'], color: const Color(0xFF3674B5), width: 12, borderRadius: BorderRadius.circular(4)), // Actual
+                      BarChartRodData(toY: _eventStats[i]['predicted'], color: Colors.grey[300], width: 12, borderRadius: BorderRadius.circular(4)), // Expected
+                    ],
+                  );
+                }),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildLegendItem(const Color(0xFF3674B5), 'Actual'),
+              const SizedBox(width: 20),
+              _buildLegendItem(Colors.grey[300]!, 'Expected'),
+            ],
+          )
+        ],
+      );
+    }
+
+    return const Center(child: Text("Detailed report coming soon for this category."));
+  }
+
+  Widget _buildLegendItem(Color color, String text) {
+    return Row(
+      children: [
+        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 8),
+        Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      ],
+    );
   }
 }

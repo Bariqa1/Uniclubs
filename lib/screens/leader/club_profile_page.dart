@@ -38,6 +38,9 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
         if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
         final clubData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
+        
+        final bool isClubActive = (clubData['isActive'] ?? true) &&
+                                 (clubData['status']?.toString().toLowerCase() == 'active');
 
         return Scaffold(
           backgroundColor: const Color(0xFFF4F8FB),
@@ -84,12 +87,33 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
                               style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold, fontSize: 18)),
                         ),
                         if (isAdminOrLeader)
-                          TextButton.icon(
-                            onPressed: () => _showCreatePostDialog(context),
-                            icon: const Icon(Icons.add_circle_outline, size: 18),
-                            label: const Text("Post"),
-                            style: TextButton.styleFrom(foregroundColor: const Color(0xFF3674B5)),
-                          ),
+                          isClubActive
+                              ? TextButton.icon(
+                                  onPressed: () => _showCreatePostDialog(context, isClubActive),
+                                  icon: const Icon(Icons.add_circle_outline, size: 18),
+                                  label: const Text("Post"),
+                                  style: TextButton.styleFrom(foregroundColor: const Color(0xFF3674B5)),
+                                )
+                              : Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF3E0),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFFFB74D).withValues(alpha: 0.4)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFFE65100)),
+                                      SizedBox(width: 4),
+                                      Text("Suspended",
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFFE65100),
+                                              fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                ),
                       ],
                     ),
                   ),
@@ -132,6 +156,13 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
   Widget _buildEnhancedHeader(Map<String, dynamic> data) {
     final isAdminOrLeader = widget.userRole == "admin" || widget.userRole == "leader";
 
+    final String photoUrl = data['photoUrl'] ?? '';
+    final bool hasValidImage = photoUrl.trim().isNotEmpty;
+    
+    // تحديد الحالة للعرض
+    bool isActive = (data['isActive'] ?? true) && (data['status']?.toString().toLowerCase() == 'active');
+    String statusText = isActive ? 'Active' : 'Suspended';
+
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(24),
@@ -147,8 +178,8 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
               CircleAvatar(
                 radius: 40,
                 backgroundColor: const Color(0xFFF0F7FF),
-                backgroundImage: data['photoUrl'] != null ? NetworkImage(data['photoUrl']) : null,
-                child: data['photoUrl'] == null ? const Icon(Icons.groups_rounded, size: 40, color: Color(0xFF3674B5)) : null,
+                backgroundImage: hasValidImage ? NetworkImage(photoUrl) : null,
+                child: !hasValidImage ? const Icon(Icons.groups_rounded, size: 40, color: Color(0xFF3674B5)) : null,
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -173,7 +204,7 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
             children: [
               _buildStatItem('Members'),
               if (isAdminOrLeader) _buildAdminInfo(data['leaderName'] ?? 'Unassigned', 'Leader'),
-              _buildAdminInfo(data['status'] ?? 'Active', 'Status', isStatus: true),
+              _buildAdminInfo(statusText, 'Status', isStatus: true),
             ],
           ),
         ],
@@ -191,7 +222,7 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
 
   Widget _buildStatItem(String label) {
     return FutureBuilder<AggregateQuerySnapshot>(
-      future: FirebaseFirestore.instance.collection('memberships').where('clubId', isEqualTo: widget.clubDoc.id).count().get(),
+      future: FirebaseFirestore.instance.collection('memberships').where('clubId', isEqualTo: widget.clubDoc.id).where('status', isEqualTo: 'approved').count().get(),
       builder: (context, snap) {
         String value = snap.hasData ? snap.data!.count.toString() : '0';
         return Column(
@@ -205,12 +236,18 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
   }
 
   Widget _buildAdminInfo(String value, String label, {bool isStatus = false}) {
+    Color statusColor = const Color(0xFF1E3A8A);
+    if (isStatus) {
+      if (value.toLowerCase() == 'active') statusColor = Colors.green;
+      if (value.toLowerCase() == 'suspended') statusColor = Colors.orange;
+    }
+
     return Column(
       children: [
         Text(value, style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.bold,
-            color: isStatus && value.toLowerCase() == 'active' ? Colors.green : const Color(0xFF1E3A8A)
+            color: statusColor
         ), overflow: TextOverflow.ellipsis),
         Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
       ],
@@ -220,6 +257,8 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
   Widget _buildProfessionalPostCard(DocumentSnapshot post, bool isAdminOrLeader) {
     final data = post.data() as Map<String, dynamic>;
     final List media = data['media'] ?? [];
+
+    final String mediaUrl = media.isNotEmpty ? media[0].toString().trim() : '';
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -235,12 +274,22 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (media.isNotEmpty)
+              if (mediaUrl.isNotEmpty)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.network(media[0], height: 180, width: double.infinity, fit: BoxFit.cover),
+                  child: Image.network(
+                    mediaUrl,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 180,
+                      color: Colors.grey[200],
+                      child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                    ),
+                  ),
                 ),
-              if (media.isNotEmpty) const SizedBox(height: 12),
+              if (mediaUrl.isNotEmpty) const SizedBox(height: 12),
               Text(data['title'] ?? "Update", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
               const SizedBox(height: 8),
               Text(data['content'] ?? "", style: TextStyle(color: Colors.grey[600], fontSize: 13)),
@@ -251,7 +300,14 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
     );
   }
 
-  void _showCreatePostDialog(BuildContext context) {
+  void _showCreatePostDialog(BuildContext context, bool isClubActive) {
+    if (!isClubActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Action forbidden: Club is currently suspended."), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
