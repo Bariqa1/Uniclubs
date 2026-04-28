@@ -20,7 +20,7 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
   String _searchQuery = '';
   String _selectedCategoryFilter = 'All';
 
-  final List<String> _categories = ['All', 'Tech', 'Sports', 'Arts', 'Academic'];
+  final List<String> _categories = ['All', 'Tech', 'Sports', 'Arts', 'Academic', 'Social'];
 
   @override
   void dispose() {
@@ -513,6 +513,7 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
                         DropdownMenuEntry(value: 'sports', label: 'Sports'),
                         DropdownMenuEntry(value: 'arts', label: 'Arts & Culture'),
                         DropdownMenuEntry(value: 'academic', label: 'Academic'),
+                        DropdownMenuEntry(value: 'social', label: 'Social'),
                       ],
                     ),
                     const SizedBox(height: 28),

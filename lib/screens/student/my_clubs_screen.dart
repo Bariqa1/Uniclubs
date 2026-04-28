@@ -269,6 +269,8 @@ class _MyClubsScreenState extends State<MyClubsScreen> {
         return [const Color(0xFFA1E3F9), const Color(0xFF578FCA)];
       case 'academic':
         return [const Color(0xFF3674B5), const Color(0xFFA1E3F9)];
+      case 'social':
+        return [const Color(0xFFA1E3F9), const Color(0xFF3674B5)];
       default:
         return [const Color(0xFF578FCA), const Color(0xFFA1E3F9)];
     }

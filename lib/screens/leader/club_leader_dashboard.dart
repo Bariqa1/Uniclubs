@@ -91,9 +91,19 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
         if (!userSnapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
         if (widget.activeClubId == null) {
-          return const Scaffold(
-            backgroundColor: Color(0xFFF3F7FB),
-            body: SafeArea(child: Center(child: Text("No club assigned to manage."))),
+          return Scaffold(
+            backgroundColor: const Color(0xFFF3F7FB),
+            appBar: AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              actions: [
+                IconButton(
+                  onPressed: _handleLogout,
+                  icon: const Icon(Icons.logout, color: Colors.redAccent),
+                ),
+              ],
+            ),
+            body: const SafeArea(child: Center(child: Text("No club assigned to manage."))),
           );
         }
 

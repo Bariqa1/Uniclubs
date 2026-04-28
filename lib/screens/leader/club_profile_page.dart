@@ -36,9 +36,8 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
 
         final clubData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
 
-        // Club Activity Status Logic (From V1)
-        final bool isClubActive = (clubData['isActive'] ?? true) &&
-            (clubData['status']?.toString().toLowerCase() == 'active');
+        final bool isClubActive = (clubData['isActive'] as bool? ?? true) &&
+            (clubData['status']?.toString().toLowerCase() != 'suspended');
 
         return Scaffold(
           backgroundColor: const Color(0xFFF4F8FB),
@@ -158,7 +157,8 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
     final String photoUrl = data['photoUrl'] ?? '';
     final bool hasValidImage = photoUrl.trim().isNotEmpty;
 
-    bool isActive = (data['isActive'] ?? true) && (data['status']?.toString().toLowerCase() == 'active');
+    final rawStatus = data['status']?.toString().toLowerCase();
+    bool isActive = (data['isActive'] as bool? ?? true) && rawStatus != 'suspended';
     String statusText = isActive ? 'Active' : 'Suspended';
 
     return Container(
@@ -201,7 +201,7 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildStatItem('Members'),
-              if (isAdminOrLeader) _buildAdminInfo(data['leaderName'] ?? 'Unassigned', 'Leader'),
+              if (isAdminOrLeader) _buildLeaderInfo(data),
               _buildAdminInfo(statusText, 'Status', isStatus: true),
             ],
           ),
@@ -249,6 +249,27 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
         ), overflow: TextOverflow.ellipsis),
         Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
       ],
+    );
+  }
+
+  Widget _buildLeaderInfo(Map<String, dynamic> data) {
+    final String? storedName = data['leaderName'] as String?;
+    final String? leaderId = data['leaderId'] as String?;
+    final bool needsLookup = (storedName == null || storedName.isEmpty || storedName == 'Unassigned')
+        && leaderId != null && leaderId.isNotEmpty;
+
+    if (!needsLookup) {
+      return _buildAdminInfo(storedName ?? 'Unassigned', 'Leader');
+    }
+
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(leaderId).get(),
+      builder: (_, snap) {
+        final name = snap.hasData && snap.data!.exists
+            ? (snap.data!.data() as Map<String, dynamic>)['name'] as String? ?? 'Unknown'
+            : (snap.connectionState == ConnectionState.waiting ? '...' : 'Unassigned');
+        return _buildAdminInfo(name, 'Leader');
+      },
     );
   }
 

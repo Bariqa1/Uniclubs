@@ -162,6 +162,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadEvents();
+    _loadRecommendations();
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       NotificationService().checkAndSendReminders(uid);
@@ -183,8 +184,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
     }
-
-    _loadRecommendations();
   }
 
   Future<void> _loadRecommendations() async {

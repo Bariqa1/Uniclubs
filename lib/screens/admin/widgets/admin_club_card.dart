@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AdminClubCard extends StatelessWidget {
   final String docId;
@@ -17,9 +18,10 @@ class AdminClubCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String name = club['name'] ?? 'Unnamed Club';
-    String leader = club['leaderName'] ?? 'Unassigned';
     String status = club['status'] ?? 'active';
     String category = club['category'] ?? 'general';
+    final String? leaderId = club['leaderId'] as String?;
+    final String? storedLeaderName = club['leaderName'] as String?;
 
     bool isActive = status.toLowerCase() == 'active';
     bool isPending = status.toLowerCase() == 'pending';
@@ -27,6 +29,13 @@ class AdminClubCard extends StatelessWidget {
 
     Color badgeColor = isActive ? const Color(0xFF2ECC71) : isPending ? const Color(0xFFF39C12) : const Color(0xFFE74C3C);
     String badgeText = isActive ? 'Active' : isPending ? 'Pending Review' : 'Suspended';
+
+    // Resolve leader name: use stored value if valid, otherwise look up from users collection
+    final bool needsLookup = (storedLeaderName == null ||
+        storedLeaderName.isEmpty ||
+        storedLeaderName == 'Unassigned') &&
+        leaderId != null &&
+        leaderId.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -69,7 +78,19 @@ class AdminClubCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Text('Leader: $leader', style: const TextStyle(fontSize: 13, color: Color(0xFF5B9FD8), fontWeight: FontWeight.w500)),
+                      needsLookup
+                          ? FutureBuilder<DocumentSnapshot>(
+                              future: FirebaseFirestore.instance.collection('users').doc(leaderId).get(),
+                              builder: (_, snap) {
+                                final resolvedName = snap.hasData && snap.data!.exists
+                                    ? (snap.data!.data() as Map<String, dynamic>)['name'] as String? ?? 'Unknown'
+                                    : (snap.connectionState == ConnectionState.waiting ? 'Loading...' : 'Unassigned');
+                                return Text('Leader: $resolvedName',
+                                    style: const TextStyle(fontSize: 13, color: Color(0xFF5B9FD8), fontWeight: FontWeight.w500));
+                              },
+                            )
+                          : Text('Leader: ${storedLeaderName ?? 'Unassigned'}',
+                              style: const TextStyle(fontSize: 13, color: Color(0xFF5B9FD8), fontWeight: FontWeight.w500)),
                     ],
                   ),
                 ),
@@ -108,6 +129,7 @@ class AdminClubCard extends StatelessWidget {
       case 'sports': return '⚽';
       case 'arts': return '🎨';
       case 'academic': return '📚';
+      case 'social': return '🎉';
       default: return '🎯';
     }
   }
