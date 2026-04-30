@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'widgets/admin_leader_card.dart';
 
 class AdminLeadersScreen extends StatefulWidget {
@@ -184,20 +186,118 @@ class _AdminLeadersScreenState extends State<AdminLeadersScreen> {
                           if (formKey.currentState!.validate()) {
                             setSheetState(() => isLoading = true);
                             try {
-                              DocumentReference userRef = await FirebaseFirestore.instance.collection('users').add({
-                                'name': nameCtrl.text.trim(),
-                                'email': emailCtrl.text.trim(),
-                                'clubId': (selectedClubId == 'none') ? null : selectedClubId,
-                                'clubName': selectedClubName ?? 'Unassigned',
-                                'role': 'club_leader',
-                                'status': 'active',
-                                'createdAt': Timestamp.now(),
-                              });
-                              if (selectedClubId != null && selectedClubId != 'none') {
-                                await FirebaseFirestore.instance.collection('clubs').doc(selectedClubId).update({'leaderId': userRef.id, 'leaderName': nameCtrl.text.trim()});
+                              String email = emailCtrl.text.trim().toLowerCase();
+
+                              var userQuery = await FirebaseFirestore.instance.collection('users')
+                                  .where('email', isEqualTo: email)
+                                  .limit(1).get();
+
+                              if (userQuery.docs.isNotEmpty) {
+                                var existingUser = userQuery.docs.first;
+                                var userData = existingUser.data();
+                                String role = userData['role'] ?? 'student';
+                                String currentName = userData['name'] ?? 'User';
+
+                                if (role == 'club_leader') {
+                                  setSheetState(() => isLoading = false);
+                                  if (context.mounted) {
+                                    // FIXED: Using showDialog instead of SnackBar ensures it appears ON TOP of the sheet
+                                    showDialog(
+                                      context: context,
+                                      builder: (c) => AlertDialog(
+                                        title: const Text('Already a Leader', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
+                                        content: Text('This email is already registered to leader: $currentName'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK')),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                } else if (role == 'student') {
+                                  setSheetState(() => isLoading = false);
+                                  if (context.mounted) {
+                                    bool? confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (c) => AlertDialog(
+                                        title: const Text('Upgrade Student?'),
+                                        content: Text('$currentName is currently a student. Do you want to upgrade them to Club Leader?'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                                          ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Confirm Upgrade')),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (confirm == true) {
+                                      setSheetState(() => isLoading = true);
+                                      await existingUser.reference.update({
+                                        'role': 'club_leader',
+                                        'clubId': (selectedClubId == 'none') ? null : selectedClubId,
+                                        'clubName': selectedClubName ?? 'Unassigned',
+                                      });
+                                      if (selectedClubId != null && selectedClubId != 'none') {
+                                        await FirebaseFirestore.instance.collection('clubs').doc(selectedClubId).update({'leaderId': existingUser.id, 'leaderName': currentName});
+                                      }
+                                      if (context.mounted) Navigator.pop(ctx);
+                                    }
+                                  }
+                                  return;
+                                }
                               }
-                              if (context.mounted) Navigator.pop(ctx);
-                            } catch (e) { setSheetState(() => isLoading = false); }
+
+                              // Case: New User
+                              FirebaseApp? tempApp;
+                              try {
+                                tempApp = await Firebase.initializeApp(
+                                  name: 'tempInvitation_${DateTime.now().millisecondsSinceEpoch}',
+                                  options: Firebase.app().options,
+                                );
+
+                                UserCredential userCred = await FirebaseAuth.instanceFor(app: tempApp)
+                                    .createUserWithEmailAndPassword(
+                                  email: email,
+                                  password: 'TempPassword123!',
+                                );
+
+                                String newUid = userCred.user!.uid;
+                                await FirebaseAuth.instanceFor(app: tempApp).sendPasswordResetEmail(email: email);
+
+                                await FirebaseFirestore.instance.collection('users').doc(newUid).set({
+                                  'uid': newUid,
+                                  'name': nameCtrl.text.trim(),
+                                  'email': email,
+                                  'clubId': (selectedClubId == 'none') ? null : selectedClubId,
+                                  'clubName': selectedClubName ?? 'Unassigned',
+                                  'role': 'club_leader',
+                                  'status': 'active',
+                                  'createdAt': FieldValue.serverTimestamp(),
+                                });
+
+                                if (selectedClubId != null && selectedClubId != 'none') {
+                                  await FirebaseFirestore.instance.collection('clubs').doc(selectedClubId).update({'leaderId': newUid, 'leaderName': nameCtrl.text.trim()});
+                                }
+
+                                if (context.mounted) {
+                                  Navigator.pop(ctx);
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invitation sent and leader added!'), backgroundColor: Colors.green));
+                                }
+                              } finally {
+                                await tempApp?.delete();
+                              }
+                            } catch (e) {
+                              setSheetState(() => isLoading = false);
+                              if (context.mounted) {
+                                showDialog(
+                                  context: context,
+                                  builder: (c) => AlertDialog(
+                                    title: const Text('Error', style: TextStyle(color: Colors.red)),
+                                    content: Text('$e'),
+                                    actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))],
+                                  ),
+                                );
+                              }
+                            }
                           }
                         },
                         child: isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Add Leader', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -274,7 +374,7 @@ class _AdminLeadersScreenState extends State<AdminLeadersScreen> {
                               }
                               await FirebaseFirestore.instance.collection('users').doc(docId).update({
                                 'name': nameCtrl.text.trim(),
-                                'email': emailCtrl.text.trim(),
+                                'email': emailCtrl.text.trim().toLowerCase(),
                                 'clubId': selectedClubId,
                                 'clubName': selectedClubName,
                               });

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import 'forgot_password_screen.dart';
+import '../../main.dart'; // Ensure the path to main.dart is correct for AuthGate
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -14,7 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   String _selectedRole = 'student'; // Default role
@@ -42,12 +43,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (result['success']) {
       String userRole = result['role'];
-      
+
       // Check if selected role matches user's actual role
       if (userRole != _selectedRole) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('You are not authorized as $_selectedRole. Your role is: $userRole'),
+          const SnackBar(
+            content: Text('Invalid login credentials or role selection.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -55,18 +56,18 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // Navigate based on role
-      if (userRole == 'student') {
-        Navigator.pushReplacementNamed(context, '/student-dashboard');
-      } else if (userRole == 'club_leader') {
-        Navigator.pushReplacementNamed(context, '/leader-dashboard');
-      } else if (userRole == 'admin') {
-            Navigator.pushReplacementNamed(context, '/admin-dashboard');
-      }
+      // Navigate to AuthGate to handle role-based routing dynamically
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const AuthGate()),
+            (route) => false,
+      );
+
     } else {
+      // Show generic error message for auth failures
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message']),
+        const SnackBar(
+          content: Text('Please verify your credentials and selected role.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -128,7 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF5B9FD8).withOpacity(0.1),
+                            color: const Color(0xFF5B9FD8).withValues(alpha: 0.1),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -169,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Container(
                             decoration: BoxDecoration(
                               border: Border.all(
-                                color: const Color(0xFF5B9FD8).withOpacity(0.3),
+                                color: const Color(0xFF5B9FD8).withValues(alpha: 0.3),
                                 width: 1.5,
                               ),
                               borderRadius: BorderRadius.circular(12),
@@ -186,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Container(
                                   width: 1,
                                   height: 40,
-                                  color: const Color(0xFF5B9FD8).withOpacity(0.3),
+                                  color: const Color(0xFF5B9FD8).withValues(alpha: 0.3),
                                 ),
                                 Expanded(
                                   child: _buildRoleButton(
@@ -198,7 +199,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Container(
                                   width: 1,
                                   height: 40,
-                                  color: const Color(0xFF5B9FD8).withOpacity(0.3),
+                                  color: const Color(0xFF5B9FD8).withValues(alpha: 0.3),
                                 ),
                                 Expanded(
                                   child: _buildRoleButton(
@@ -233,7 +234,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               prefixIcon: Icon(
                                 Icons.email_outlined,
-                                color: const Color(0xFF5B9FD8).withOpacity(0.7),
+                                color: const Color(0xFF5B9FD8).withValues(alpha: 0.7),
                                 size: 20,
                               ),
                               filled: true,
@@ -241,13 +242,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: const Color(0xFF5B9FD8).withOpacity(0.3),
+                                  color: const Color(0xFF5B9FD8).withValues(alpha: 0.3),
                                 ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: const Color(0xFF5B9FD8).withOpacity(0.3),
+                                  color: const Color(0xFF5B9FD8).withValues(alpha: 0.3),
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
@@ -295,7 +296,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               prefixIcon: Icon(
                                 Icons.lock_outline,
-                                color: const Color(0xFF5B9FD8).withOpacity(0.7),
+                                color: const Color(0xFF5B9FD8).withValues(alpha: 0.7),
                                 size: 20,
                               ),
                               suffixIcon: IconButton(
@@ -303,7 +304,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   _obscurePassword
                                       ? Icons.visibility_off_outlined
                                       : Icons.visibility_outlined,
-                                  color: const Color(0xFF5B9FD8).withOpacity(0.7),
+                                  color: const Color(0xFF5B9FD8).withValues(alpha: 0.7),
                                   size: 20,
                                 ),
                                 onPressed: () {
@@ -315,13 +316,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: const Color(0xFF5B9FD8).withOpacity(0.3),
+                                  color: const Color(0xFF5B9FD8).withValues(alpha: 0.3),
                                 ),
                               ),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: BorderSide(
-                                  color: const Color(0xFF5B9FD8).withOpacity(0.3),
+                                  color: const Color(0xFF5B9FD8).withValues(alpha: 0.3),
                                 ),
                               ),
                               focusedBorder: OutlineInputBorder(
@@ -382,21 +383,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: _isLoading
                                   ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2,
-                                      ),
-                                    )
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
                                   : const Text(
-                                      'Login',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                'Login',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ],
@@ -446,7 +447,7 @@ class _LoginScreenState extends State<LoginScreen> {
     required IconData icon,
   }) {
     bool isSelected = _selectedRole == value;
-    
+
     return InkWell(
       onTap: () {
         setState(() => _selectedRole = value);

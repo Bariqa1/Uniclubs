@@ -36,8 +36,8 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
 
         final clubData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
 
-        final bool isClubActive = (clubData['isActive'] as bool? ?? true) &&
-            (clubData['status']?.toString().toLowerCase() != 'suspended');
+        final String rawStatus = clubData['status']?.toString().toLowerCase() ?? 'active';
+        final bool isClubActive = (clubData['isActive'] as bool? ?? true) && (rawStatus == 'active');
 
         return Scaffold(
           backgroundColor: const Color(0xFFF4F8FB),
@@ -86,27 +86,29 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
                         if (isAdminOrLeader)
                           isClubActive
                               ? TextButton.icon(
-                            onPressed: () => _showCreatePostDialog(context, isClubActive),
+                            onPressed: () => _showCreatePostDialog(context, isClubActive, rawStatus),
                             icon: const Icon(Icons.add_circle_outline, size: 18),
                             label: const Text("Post"),
                             style: TextButton.styleFrom(foregroundColor: const Color(0xFF3674B5)),
                           )
-                              : Container( // Suspended Badge (From V1)
+                              : Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFF3E0),
+                              color: rawStatus == 'pending' ? const Color(0xFFFFFDE7) : const Color(0xFFFFF3E0),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFFFB74D).withValues(alpha: 0.4)),
+                              border: Border.all(color: rawStatus == 'pending' ? const Color(0xFFFFF176).withValues(alpha: 0.4) : const Color(0xFFFFB74D).withValues(alpha: 0.4)),
                             ),
-                            child: const Row(
+                            child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.lock_outline_rounded, size: 14, color: Color(0xFFE65100)),
-                                SizedBox(width: 4),
-                                Text("Suspended",
+                                Icon(rawStatus == 'pending' ? Icons.hourglass_empty_rounded : Icons.lock_outline_rounded,
+                                    size: 14,
+                                    color: rawStatus == 'pending' ? const Color(0xFFF57F17) : const Color(0xFFE65100)),
+                                const SizedBox(width: 4),
+                                Text(rawStatus == 'pending' ? "Pending" : "Suspended",
                                     style: TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFFE65100),
+                                        color: rawStatus == 'pending' ? const Color(0xFFF57F17) : const Color(0xFFE65100),
                                         fontWeight: FontWeight.w600)),
                               ],
                             ),
@@ -150,16 +152,19 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
     );
   }
 
-  // Enhanced Header (V1 Logic + V2 Styling)
   Widget _buildEnhancedHeader(Map<String, dynamic> data) {
     final isAdminOrLeader = widget.userRole == "admin" || widget.userRole == "leader";
 
     final String photoUrl = data['photoUrl'] ?? '';
     final bool hasValidImage = photoUrl.trim().isNotEmpty;
 
-    final rawStatus = data['status']?.toString().toLowerCase();
-    bool isActive = (data['isActive'] as bool? ?? true) && rawStatus != 'suspended';
-    String statusText = isActive ? 'Active' : 'Suspended';
+    final String rawStatus = data['status']?.toString().toLowerCase() ?? 'active';
+    String statusText = 'Active';
+    if (rawStatus == 'pending') {
+      statusText = 'Pending';
+    } else if (rawStatus == 'suspended' || !(data['isActive'] as bool? ?? true)) {
+      statusText = 'Suspended';
+    }
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -235,9 +240,15 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
 
   Widget _buildAdminInfo(String value, String label, {bool isStatus = false}) {
     Color statusColor = const Color(0xFF1E3A8A);
+
     if (isStatus) {
-      if (value.toLowerCase() == 'active') statusColor = Colors.green;
-      if (value.toLowerCase() == 'suspended') statusColor = Colors.orange;
+      if (value.toLowerCase() == 'active') {
+        statusColor = Colors.green;
+      } else if (value.toLowerCase() == 'pending') {
+        statusColor = const Color(0xFFF57F17);
+      } else if (value.toLowerCase() == 'suspended') {
+        statusColor = const Color(0xFFE65100);
+      }
     }
 
     return Column(
@@ -273,7 +284,6 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
     );
   }
 
-  // Beautiful Post Card (From V2)
   Widget _buildProfessionalPostCard(DocumentSnapshot post, bool isAdminOrLeader) {
     final data = post.data() as Map<String, dynamic>;
     final List media = data['media'] ?? [];
@@ -330,7 +340,6 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
               ),
               const SizedBox(height: 12),
 
-              // Image with tap-to-expand
               if (media.isNotEmpty) ...[
                 GestureDetector(
                   onTap: () => _showFullScreenImage(context, media[0] as String),
@@ -381,11 +390,13 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
     );
   }
 
-  // Enhanced Dialog (V2 UI + V1 Logic)
-  void _showCreatePostDialog(BuildContext context, bool isClubActive) {
+  void _showCreatePostDialog(BuildContext context, bool isClubActive, String rawStatus) {
     if (!isClubActive) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Action forbidden: Club is currently suspended."), backgroundColor: Colors.orange),
+        SnackBar(
+            content: Text(rawStatus == 'pending' ? "Action forbidden: Club is currently under review." : "Action forbidden: Club is currently suspended."),
+            backgroundColor: Colors.orange
+        ),
       );
       return;
     }

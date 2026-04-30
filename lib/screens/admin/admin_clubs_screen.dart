@@ -616,49 +616,96 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
                     onPressed: isAdding ? null : () async {
                       if (formKey.currentState!.validate()) {
                         setDialogState(() => isAdding = true);
-                        FirebaseApp? tempApp;
                         try {
-                          tempApp = await Firebase.initializeApp(
-                            name: 'tempAuthForLeader',
-                            options: Firebase.app().options,
-                          );
+                          String email = emailCtrl.text.trim().toLowerCase();
+                          
+                          // Check if user already exists
+                          var userQuery = await FirebaseFirestore.instance.collection('users')
+                              .where('email', isEqualTo: email)
+                              .limit(1).get();
 
-                          UserCredential userCred = await FirebaseAuth.instanceFor(app: tempApp)
-                              .createUserWithEmailAndPassword(
-                            email: emailCtrl.text.trim(),
-                            password: 'TempPassword123!',
-                          );
+                          if (userQuery.docs.isNotEmpty) {
+                            var existingUser = userQuery.docs.first;
+                            var userData = existingUser.data();
+                            String role = userData['role'] ?? 'student';
+                            String currentName = userData['name'] ?? 'User';
 
-                          String newUid = userCred.user!.uid;
+                            if (role == 'club_leader') {
+                              setDialogState(() => isAdding = false);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $currentName is already a Leader.'), backgroundColor: Colors.orange),
+                                );
+                              }
+                              return;
+                            } else if (role == 'student') {
+                              setDialogState(() => isAdding = false);
+                              if (context.mounted) {
+                                bool? confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (c) => AlertDialog(
+                                    title: const Text('Upgrade Student?'),
+                                    content: Text('$currentName is currently a student. Do you want to upgrade them to Club Leader?'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+                                      ElevatedButton(onPressed: () => Navigator.pop(c, true), child: const Text('Confirm Upgrade')),
+                                    ],
+                                  ),
+                                );
 
-                          await FirebaseAuth.instanceFor(app: tempApp).sendPasswordResetEmail(email: emailCtrl.text.trim());
+                                if (confirm == true) {
+                                  setDialogState(() => isAdding = true);
+                                  await existingUser.reference.update({'role': 'club_leader'});
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Student upgraded to Leader!'), backgroundColor: Colors.green));
+                                    Navigator.pop(ctx);
+                                  }
+                                }
+                              }
+                              return;
+                            }
+                          }
 
-                          await FirebaseFirestore.instance.collection('users').doc(newUid).set({
-                            'uid': newUid,
-                            'name': nameCtrl.text.trim(),
-                            'email': emailCtrl.text.trim(),
-                            'clubName': 'Unassigned',
-                            'role': 'club_leader',
-                            'status': 'active',
-                            'createdAt': FieldValue.serverTimestamp(),
-                            'profilePic': '',
-                          });
-
-                          if (ctx.mounted) {
-                            Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Leader added! An email was sent to them to set their password.'), backgroundColor: Colors.green),
+                          // New User Logic
+                          FirebaseApp? tempApp;
+                          try {
+                            tempApp = await Firebase.initializeApp(
+                              name: 'tempInvitation_${DateTime.now().millisecondsSinceEpoch}',
+                              options: Firebase.app().options,
                             );
+
+                            UserCredential userCred = await FirebaseAuth.instanceFor(app: tempApp)
+                                .createUserWithEmailAndPassword(
+                              email: email,
+                              password: 'TempPassword123!',
+                            );
+
+                            String newUid = userCred.user!.uid;
+                            await FirebaseAuth.instanceFor(app: tempApp).sendPasswordResetEmail(email: email);
+
+                            await FirebaseFirestore.instance.collection('users').doc(newUid).set({
+                              'uid': newUid,
+                              'name': nameCtrl.text.trim(),
+                              'email': email,
+                              'clubName': 'Unassigned',
+                              'role': 'club_leader',
+                              'status': 'active',
+                              'createdAt': FieldValue.serverTimestamp(),
+                              'profilePic': '',
+                            });
+
+                            if (ctx.mounted) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Leader added and invitation sent!'), backgroundColor: Colors.green),
+                              );
+                            }
+                          } finally {
+                            await tempApp?.delete();
                           }
                         } catch(e) {
                           setDialogState(() => isAdding = false);
-                          if (ctx.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                            );
-                          }
-                        } finally {
-                          await tempApp?.delete();
+                          if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
                         }
                       }
                     },

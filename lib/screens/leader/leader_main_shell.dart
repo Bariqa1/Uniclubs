@@ -43,9 +43,21 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
 
         final myClubs = snapshot.data?.docs ?? [];
 
+        // If the leader has no clubs assigned yet
         if (myClubs.isEmpty) {
-          return const Scaffold(
-            body: ClubLeaderDashboard(activeClubId: null),
+          return Scaffold(
+            appBar: AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              actions: [
+                IconButton(
+                  onPressed: _handleLogout,
+                  icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                  tooltip: "Logout",
+                ),
+              ],
+            ),
+            body: const ClubLeaderDashboard(activeClubId: null),
           );
         }
 
@@ -106,7 +118,7 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _selectedIndex,
             onTap: (index) => setState(() => _selectedIndex = index),
-            selectedItemColor: const Color(0xFF4A80C0),
+            selectedItemColor: const Color(0xFF3674B5),
             backgroundColor: Colors.white,
             type: BottomNavigationBarType.fixed,
             items: const [
@@ -178,34 +190,6 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildNoClubPlaceholder() {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F7FB),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.lock_person_rounded, size: 80, color: const Color(0xFF3674B5).withValues(alpha: 0.2)),
-            const SizedBox(height: 16),
-            const Text(
-              "Access Restricted",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A)),
-            ),
-            const SizedBox(height: 8),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 40),
-              child: Text(
-                "Please request to lead a club from the Stats tab to unlock these features.",
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 14),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

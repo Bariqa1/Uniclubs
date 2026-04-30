@@ -17,7 +17,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _authService = AuthService();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -141,11 +141,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withOpacity(0.3)),
+                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withOpacity(0.3)),
+                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -184,11 +184,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withOpacity(0.3)),
+                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withOpacity(0.3)),
+                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -236,11 +236,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withOpacity(0.3)),
+                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withOpacity(0.3)),
+                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -251,8 +251,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       if (value == null || value.isEmpty) {
                         return 'Please enter a password';
                       }
-                      if (value.length < 6) {
-                        return 'Password must be at least 6 characters';
+                      if (value.length < 8) {
+                        return 'Password must be at least 8 characters';
+                      }
+                      if (!RegExp(r'(?=.*[A-Z])').hasMatch(value)) {
+                        return 'Must have at least one uppercase letter';
+                      }
+                      if (!RegExp(r'(?=.*[a-z])').hasMatch(value)) {
+                        return 'Must have at least one lowercase letter';
+                      }
+                      if (!RegExp(r'(?=.*[0-9])').hasMatch(value)) {
+                        return 'Must have at least one number';
+                      }
+                      if (!RegExp(r'(?=.*?[!@#$&*~])').hasMatch(value)) {
+                        return 'Must have at least one special character';
                       }
                       return null;
                     },
@@ -288,11 +300,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       fillColor: Colors.white,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withOpacity(0.3)),
+                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withOpacity(0.3)),
+                        borderSide: BorderSide(color: const Color(0xFF5B9FD8).withValues(alpha: 0.3)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
