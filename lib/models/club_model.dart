@@ -8,8 +8,7 @@ class Club {
   final String leaderId;
   final int memberCount;
   final String? logo;
-  final Map<String, String> socialLinks;
-  final bool isActive;
+  final String status;
   final DateTime? createdAt;
 
   Club({
@@ -20,8 +19,7 @@ class Club {
     required this.leaderId,
     required this.memberCount,
     this.logo,
-    required this.socialLinks,
-    required this.isActive,
+    required this.status,
     this.createdAt,
   });
 
@@ -34,8 +32,7 @@ class Club {
       leaderId: data['leaderId'] ?? '',
       memberCount: data['memberCount'] ?? 0,
       logo: data['logo'],
-      socialLinks: Map<String, String>.from(data['socialLinks'] ?? {}),
-      isActive: data['isActive'] ?? true,
+      status: data['status'] ?? 'active',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
     );
   }

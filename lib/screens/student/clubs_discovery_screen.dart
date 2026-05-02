@@ -59,7 +59,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
   void _applyFilters() {
     setState(() {
       _displayedClubs = _allClubs.where((club) {
-        final isActive = club['status'] == 'active';
+        final isNotSuspended = club['status'] != 'suspended';
 
         final matchesCategory = _selectedCategories.isEmpty ||
             _selectedCategories.contains(club['category']);
@@ -68,7 +68,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
                 .toLowerCase()
                 .contains(_searchController.text.toLowerCase());
 
-        return isActive && matchesCategory && matchesSearch;
+        return isNotSuspended && matchesCategory && matchesSearch;
       }).toList();
     });
   }
@@ -83,7 +83,7 @@ class _ClubsDiscoveryScreenState extends State<ClubsDiscoveryScreen> {
       final results = await _firestoreService.searchClubs(query);
       if (mounted) {
         setState(() {
-          _displayedClubs = results.where((c) => c['status'] == 'active').toList();
+          _displayedClubs = results.where((c) => c['status'] != 'suspended').toList();
           _isLoading = false;
         });
       }

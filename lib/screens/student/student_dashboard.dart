@@ -157,16 +157,25 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Event> _upcomingEvents = [];
   bool _isLoading = true;
   bool _isLoadingRecommendations = false;
+  String _userName = '';
 
   @override
   void initState() {
     super.initState();
     _loadEvents();
     _loadRecommendations();
+    _loadUserName();
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
       NotificationService().checkAndSendReminders(uid);
     }
+  }
+
+  Future<void> _loadUserName() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    if (mounted) setState(() => _userName = doc.data()?['name'] ?? '');
   }
 
   Future<void> _loadEvents() async {
@@ -260,9 +269,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Welcome Back!',
-                style: TextStyle(
+              Text(
+                _userName.isNotEmpty ? 'Welcome, $_userName!' : 'Welcome!',
+                style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF3674B5),

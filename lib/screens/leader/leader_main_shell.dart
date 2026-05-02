@@ -93,7 +93,7 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
 
         return Scaffold(
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: const Color(0xFFE8F4FD),
             elevation: 0,
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,7 +135,7 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
 
   Widget _buildClubSelectionScreen(List<QueryDocumentSnapshot> clubs) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7FB),
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -149,7 +149,15 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
           ),
         ],
       ),
-      body: ListView.builder(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFE8F4FD), Color(0xFFF0F9FF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: ListView.builder(
         padding: const EdgeInsets.all(24),
         itemCount: clubs.length,
         itemBuilder: (context, index) {
@@ -190,6 +198,7 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
             ),
           );
         },
+      ),
       ),
     );
   }

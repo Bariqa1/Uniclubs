@@ -159,7 +159,7 @@ class _MembersScreenState extends State<MembersScreen> with SingleTickerProvider
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F7FB),
+      backgroundColor: const Color(0xFFE8F4FD),
       // 🚀 نفس ستايل الـ AppBar في صفحة EventPage بالضبط
       appBar: AppBar(
         title: const Text("Members Management", style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),

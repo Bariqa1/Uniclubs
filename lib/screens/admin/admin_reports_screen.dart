@@ -102,7 +102,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FB),
+      backgroundColor: const Color(0xFFE8F4FD),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -694,7 +694,7 @@ class _AnalyticsDetailScreenState extends State<AnalyticsDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FB),
+      backgroundColor: const Color(0xFFE8F4FD),
       appBar: AppBar(
         title: Text(
           '${widget.categoryTitle} Details',

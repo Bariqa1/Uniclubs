@@ -145,10 +145,6 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
                     _buildStatsRow(club),
                     const SizedBox(height: 20),
                     _buildDescriptionSection(club),
-                    if (club.socialLinks.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      _buildSocialLinks(club),
-                    ],
                     const SizedBox(height: 32),
                     _buildJoinButton(club),
                     const SizedBox(height: 24),
@@ -291,10 +287,10 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: _buildStatCard(
-            icon: club.isActive ? Icons.check_circle : Icons.cancel,
+            icon: club.status == 'active' ? Icons.check_circle : Icons.cancel,
             label: 'Status',
-            value: club.isActive ? 'Active' : 'Inactive',
-            valueColor: club.isActive ? Colors.green : Colors.grey,
+            value: club.status == 'active' ? 'Active' : 'Inactive',
+            valueColor: club.status == 'active' ? Colors.green : Colors.grey,
           ),
         ),
       ],
@@ -395,66 +391,6 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSocialLinks(Club club) {
-    final icons = {
-      'instagram': Icons.camera_alt_rounded,
-      'twitter': Icons.alternate_email,
-      'linkedin': Icons.work_rounded,
-      'website': Icons.language_rounded,
-    };
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Social Links',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF3674B5),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: club.socialLinks.entries.map((entry) {
-            final iconData = icons[entry.key] ?? Icons.link;
-            return Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF578FCA).withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(iconData, size: 18, color: const Color(0xFF3674B5)),
-                  const SizedBox(width: 8),
-                  Text(
-                    entry.key[0].toUpperCase() + entry.key.substring(1),
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF3674B5),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
-        ),
-      ],
     );
   }
 
@@ -567,7 +503,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: (club.isActive && !loading) ? _handleJoin : null,
+        onPressed: (club.status == 'active' && !loading) ? _handleJoin : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF3674B5),
           disabledBackgroundColor: Colors.grey,
@@ -581,7 +517,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
               )
             : Text(
-                club.isActive ? 'Request to Join' : 'Club Inactive',
+                club.status == 'active' ? 'Request to Join' : 'Club Inactive',
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,

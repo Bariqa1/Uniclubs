@@ -15,7 +15,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FB),
+      backgroundColor: const Color(0xFFE8F4FD),
       appBar: AppBar(
         title: const Text('Attendance Analytics', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,

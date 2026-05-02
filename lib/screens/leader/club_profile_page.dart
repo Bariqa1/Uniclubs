@@ -37,10 +37,10 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
         final clubData = snapshot.data!.data() as Map<String, dynamic>? ?? {};
 
         final String rawStatus = clubData['status']?.toString().toLowerCase() ?? 'active';
-        final bool isClubActive = (clubData['isActive'] as bool? ?? true) && (rawStatus == 'active');
+        final bool isClubActive = rawStatus == 'active';
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF4F8FB),
+          backgroundColor: const Color(0xFFE8F4FD),
           appBar: AppBar(
             backgroundColor: Colors.white,
             elevation: 0,
@@ -162,7 +162,7 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
     String statusText = 'Active';
     if (rawStatus == 'pending') {
       statusText = 'Pending';
-    } else if (rawStatus == 'suspended' || !(data['isActive'] as bool? ?? true)) {
+    } else if (rawStatus == 'suspended') {
       statusText = 'Suspended';
     }
 

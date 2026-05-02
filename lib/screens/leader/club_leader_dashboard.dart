@@ -219,9 +219,7 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
                                 'memberCount': 0,
                                 'createdAt': FieldValue.serverTimestamp(),
                                 'description': 'Welcome to our new club! Stay tuned for more updates.',
-                                'isActive': true,
                                 'logo': '',
-                                'socialLinks': {'instagram': '', 'twitter': ''},
                               });
 
                               await FirebaseFirestore.instance.collection('notifications').add({
@@ -329,8 +327,17 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
 
         if (widget.activeClubId == null) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF3F7FB),
-            body: SafeArea(child: _buildSelectionList(leaderName, userId)),
+            backgroundColor: Colors.transparent,
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFFE8F4FD), Color(0xFFF0F9FF)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: SafeArea(child: _buildSelectionList(leaderName, userId)),
+            ),
           );
         }
 
@@ -343,7 +350,7 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
               if (clubSnapshot.hasData && clubSnapshot.data!.exists) {
                 final clubData = clubSnapshot.data!.data() as Map<String, dynamic>?;
                 currentStatus = clubData?['status']?.toString().toLowerCase() ?? 'active';
-                isClubActive = (clubData?['isActive'] ?? true) && (currentStatus == 'active');
+                isClubActive = currentStatus == 'active';
               }
 
               return StreamBuilder<QuerySnapshot>(
@@ -551,7 +558,15 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
       });
     }
 
-    return SingleChildScrollView(
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFE8F4FD), Color(0xFFF0F9FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -649,6 +664,7 @@ class _ClubLeaderDashboardState extends State<ClubLeaderDashboard> {
           const SizedBox(height: 20),
         ],
       ),
+    ),
     );
   }
 

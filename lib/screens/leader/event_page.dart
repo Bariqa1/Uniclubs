@@ -528,11 +528,11 @@ class _EventPageState extends State<EventPage> with SingleTickerProviderStateMix
             final clubData = clubSnapshot.data!.data() as Map<String, dynamic>?;
             currentStatus = clubData?['status']?.toString().toLowerCase() ?? 'active';
 
-            isClubActive = (clubData?['isActive'] ?? true) && (currentStatus == 'active');
+            isClubActive = currentStatus == 'active';
           }
 
           return Scaffold(
-            backgroundColor: const Color(0xFFF3F7FB),
+            backgroundColor: const Color(0xFFE8F4FD),
             appBar: AppBar(
               title: const Text("Club Events", style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
               backgroundColor: Colors.white,

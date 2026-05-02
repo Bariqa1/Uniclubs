@@ -8,8 +8,18 @@ class FirestoreService {
   // EVENTS
   // ============================================
 
+  Future<Set<String>> _getActiveClubIds() async {
+    final snapshot = await _firestore
+        .collection('clubs')
+        .where('status', isEqualTo: 'active')
+        .get();
+    return snapshot.docs.map((doc) => doc.id).toSet();
+  }
+
   Future<List<Map<String, dynamic>>> getUpcomingEvents({int limit = 20}) async {
     try {
+      final activeClubIds = await _getActiveClubIds();
+
       QuerySnapshot snapshot = await _firestore
           .collection('events')
           .where('status', isEqualTo: 'upcoming')
@@ -22,7 +32,7 @@ class FirestoreService {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
         return data;
-      }).toList();
+      }).where((data) => activeClubIds.contains(data['clubId'])).toList();
     } catch (e) {
       debugPrint('Error getting upcoming events: $e');
       return [];
@@ -31,6 +41,8 @@ class FirestoreService {
 
   Future<List<Map<String, dynamic>>> getPastEvents({int limit = 20}) async {
     try {
+      final activeClubIds = await _getActiveClubIds();
+
       QuerySnapshot snapshot = await _firestore
           .collection('events')
           .where('date', isLessThan: Timestamp.now())
@@ -42,7 +54,9 @@ class FirestoreService {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
         return data;
-      }).where((data) => data['status'] != 'cancelled').toList();
+      }).where((data) =>
+          data['status'] != 'cancelled' &&
+          activeClubIds.contains(data['clubId'])).toList();
     } catch (e) {
       debugPrint('Error getting past events: $e');
       return [];
@@ -51,6 +65,8 @@ class FirestoreService {
 
   Future<List<Map<String, dynamic>>> searchEvents(String query) async {
     try {
+      final activeClubIds = await _getActiveClubIds();
+
       QuerySnapshot snapshot = await _firestore
           .collection('events')
           .where('status', isEqualTo: 'upcoming')
@@ -60,7 +76,8 @@ class FirestoreService {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         String title = data['title']?.toLowerCase() ?? '';
         String category = data['category']?.toLowerCase() ?? '';
-        return title.contains(query.toLowerCase()) || category.contains(query.toLowerCase());
+        return (title.contains(query.toLowerCase()) || category.contains(query.toLowerCase()))
+            && activeClubIds.contains(data['clubId']);
       }).map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
@@ -93,15 +110,16 @@ class FirestoreService {
     try {
       QuerySnapshot snapshot = await _firestore
           .collection('clubs')
-          .where('isActive', isEqualTo: true)
-          .orderBy('name')
+          .where('status', isEqualTo: 'active')
           .limit(limit)
           .get();
-      return snapshot.docs.map((doc) {
+      final results = snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
         return data;
       }).toList();
+      results.sort((a, b) => (a['name'] ?? '').compareTo(b['name'] ?? ''));
+      return results;
     } catch (e) {
       return [];
     }
@@ -111,7 +129,7 @@ class FirestoreService {
     try {
       QuerySnapshot snapshot = await _firestore
           .collection('clubs')
-          .where('isActive', isEqualTo: true)
+          .where('status', isEqualTo: 'active')
           .get();
 
       return snapshot.docs.where((doc) {
@@ -174,16 +192,35 @@ class FirestoreService {
           .where('userId', isEqualTo: userId)
           .get();
 
-      List<Map<String, dynamic>> results = [];
+      // Deduplicate: keep the latest non-cancelled registration per event
+      final Map<String, Map<String, dynamic>> latestByEvent = {};
       for (var doc in snapshot.docs) {
         final regData = doc.data() as Map<String, dynamic>;
         if (regData['status'] == 'cancelled') continue;
+        final eventId = regData['eventId'] as String? ?? '';
+        if (eventId.isEmpty) continue;
 
-        final eventData = await getEvent(regData['eventId']);
+        final existing = latestByEvent[eventId];
+        if (existing == null) {
+          latestByEvent[eventId] = {...regData, 'docId': doc.id};
+        } else {
+          // Prefer 'attended' over 'registered'; otherwise keep whichever is later
+          final existingStatus = existing['status'] ?? '';
+          final newStatus = regData['status'] ?? '';
+          if (newStatus == 'attended' && existingStatus != 'attended') {
+            latestByEvent[eventId] = {...regData, 'docId': doc.id};
+          }
+        }
+      }
+
+      List<Map<String, dynamic>> results = [];
+      for (final entry in latestByEvent.entries) {
+        final regData = entry.value;
+        final eventData = await getEvent(entry.key);
         if (eventData != null) {
           results.add({
             ...eventData,
-            'registrationId': doc.id,
+            'registrationId': regData['docId'],
             'registrationStatus': regData['status'] ?? 'registered',
             'registeredAt': regData['registeredAt'],
           });
@@ -300,6 +337,12 @@ class FirestoreService {
   Future<bool> hasSubmittedFeedback(String userId, String eventId) async {
     final snap = await _firestore.collection('feedback').where('userId', isEqualTo: userId).where('eventId', isEqualTo: eventId).limit(1).get();
     return snap.docs.isNotEmpty;
+  }
+
+  Future<Map<String, dynamic>?> getFeedbackForEvent(String userId, String eventId) async {
+    final snap = await _firestore.collection('feedback').where('userId', isEqualTo: userId).where('eventId', isEqualTo: eventId).limit(1).get();
+    if (snap.docs.isEmpty) return null;
+    return {...snap.docs.first.data(), 'feedbackId': snap.docs.first.id};
   }
 
   Future<bool> submitFeedback({required String userId, required String eventId, required int rating, required String comment}) async {

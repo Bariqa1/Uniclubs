@@ -55,7 +55,7 @@ class AdminManagementScreen extends StatelessWidget {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF4F8FB),
+        backgroundColor: const Color(0xFFE8F4FD),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
@@ -205,7 +205,13 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(color: Color(0xFFF4F8FB)),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFE8F4FD), Color(0xFFF0F9FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
       child: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -452,7 +458,7 @@ class _ClubFeedbackScreenState extends State<ClubFeedbackScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FB),
+      backgroundColor: const Color(0xFFE8F4FD),
       appBar: AppBar(
         title: Text('${widget.clubName} Feedback',
             style: const TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold, fontSize: 18)),

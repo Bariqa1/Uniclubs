@@ -541,12 +541,7 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
                                 'memberCount': 0,
                                 'createdAt': FieldValue.serverTimestamp(),
                                 'description': 'Welcome to our new club! Stay tuned for more updates.',
-                                'isActive': true,
                                 'logo': '',
-                                'socialLinks': {
-                                  'instagram': '',
-                                  'twitter': ''
-                                },
                               });
 
                               if (selectedLeaderId != null && selectedLeaderId != 'none') {
