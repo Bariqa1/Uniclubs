@@ -16,8 +16,8 @@ class MyRegistrationsScreen extends StatefulWidget {
 class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   List<Map<String, dynamic>> _registrations = [];
-  // eventId → already submitted?
-  final Map<String, bool> _feedbackSubmitted = {};
+  // eventId → submitted feedback data (null = not submitted)
+  final Map<String, Map<String, dynamic>?> _feedbackData = {};
   bool _isLoading = true;
 
   @override
@@ -34,21 +34,21 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
     try {
       final registrations = await _firestoreService.getUserRegistrations(user.uid);
 
-      // For attended past events, check if feedback was already submitted
-      final Map<String, bool> submitted = {};
+      // For attended past events, fetch submitted feedback if any
+      final Map<String, Map<String, dynamic>?> feedbackMap = {};
       for (final reg in registrations) {
         if (reg['registrationStatus'] == 'attended') {
           final eventId = reg['id'] as String? ?? '';
           if (eventId.isNotEmpty) {
-            submitted[eventId] =
-                await _firestoreService.hasSubmittedFeedback(user.uid, eventId);
+            feedbackMap[eventId] =
+                await _firestoreService.getFeedbackForEvent(user.uid, eventId);
           }
         }
       }
 
       setState(() {
         _registrations = registrations;
-        _feedbackSubmitted.addAll(submitted);
+        _feedbackData.addAll(feedbackMap);
         _isLoading = false;
       });
     } catch (e) {
@@ -65,8 +65,11 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
         eventId: eventId,
         eventTitle: eventTitle,
         firestoreService: _firestoreService,
-        onSubmitted: () {
-          setState(() => _feedbackSubmitted[eventId] = true);
+        onSubmitted: (int rating, String comment) async {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user == null) return;
+          final data = await _firestoreService.getFeedbackForEvent(user.uid, eventId);
+          setState(() => _feedbackData[eventId] = data ?? {'rating': rating, 'comment': comment});
         },
       ),
     );
@@ -120,9 +123,9 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
           ),
           const SizedBox(width: 8),
           const Text(
-            'My Registrations',
+            'My Registrations & Feedback',
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
               color: Color(0xFF3674B5),
             ),
@@ -166,7 +169,7 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
     final regStatus = eventData['registrationStatus'] as String? ?? 'registered';
     final isAttended = regStatus == 'attended';
     final eventId = eventData['id'] as String? ?? '';
-    final alreadySubmitted = _feedbackSubmitted[eventId] ?? false;
+    final submittedFeedback = _feedbackData[eventId];
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -277,37 +280,12 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
               ),
             ),
 
-            // Feedback row — only for attended past events
+            // Feedback section — only for attended past events
             if (isAttended && isPast)
               Container(
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: alreadySubmitted
-                    ? Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: Colors.green.withOpacity(0.3)),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.check_circle_rounded,
-                                size: 16, color: Colors.green),
-                            SizedBox(width: 6),
-                            Text(
-                              'Feedback Submitted',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.green,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
+                child: submittedFeedback != null
+                    ? _buildSubmittedFeedback(submittedFeedback)
                     : SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
@@ -338,6 +316,66 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSubmittedFeedback(Map<String, dynamic> feedback) {
+    final rating = (feedback['rating'] as num?)?.toInt() ?? 0;
+    final comment = feedback['comment'] as String? ?? '';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F9FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFDEECF8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.rate_review_rounded,
+                  size: 15, color: Color(0xFF3674B5)),
+              const SizedBox(width: 6),
+              const Text(
+                'Your Feedback',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF3674B5),
+                ),
+              ),
+              const Spacer(),
+              Row(
+                children: List.generate(5, (i) {
+                  return Icon(
+                    (i + 1) <= rating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    size: 16,
+                    color: (i + 1) <= rating
+                        ? const Color(0xFFFFC107)
+                        : const Color(0xFFCCDDEE),
+                  );
+                }),
+              ),
+            ],
+          ),
+          if (comment.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              comment,
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: const Color(0xFF3674B5).withOpacity(0.75),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -453,7 +491,7 @@ class _FeedbackSheet extends StatefulWidget {
   final String eventId;
   final String eventTitle;
   final FirestoreService firestoreService;
-  final VoidCallback onSubmitted;
+  final void Function(int rating, String comment) onSubmitted;
 
   const _FeedbackSheet({
     required this.eventId,
@@ -499,7 +537,7 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
     setState(() => _isSubmitting = false);
 
     if (ok) {
-      widget.onSubmitted();
+      widget.onSubmitted(_rating, _commentController.text);
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

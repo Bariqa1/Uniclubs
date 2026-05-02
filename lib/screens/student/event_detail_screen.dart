@@ -22,6 +22,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
   bool _isRegistering = false;
   bool _isCancelling = false;
   bool _isRegistered = false;
+  bool _hasAttended = false;
   bool _hasFeedback = false;
 
   @override
@@ -36,13 +37,16 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
 
     try {
       final registrations = await _firestoreService.getUserRegistrations(user.uid);
-      final isRegistered = registrations.any((r) => r['id'] == widget.event.id);
+      final match = registrations.where((r) => r['id'] == widget.event.id).toList();
+      final isRegistered = match.isNotEmpty;
+      final hasAttended = match.isNotEmpty && match.first['registrationStatus'] == 'attended';
 
       final hasFeedback = await _firestoreService.hasSubmittedFeedback(user.uid, widget.event.id);
 
       if (mounted) {
         setState(() {
           _isRegistered = isRegistered;
+          _hasAttended = hasAttended;
           _hasFeedback = hasFeedback;
         });
       }
@@ -691,49 +695,52 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
           ),
           const SizedBox(height: 12),
 
-          if (_hasFeedback)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFA1E3F9)),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check, color: Color(0xFF3674B5), size: 20),
-                  SizedBox(width: 8),
-                  Text(
-                    'Feedback Submitted',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF3674B5),
+          if (_hasAttended && event.date.isBefore(DateTime.now())) ...[
+            const SizedBox(height: 0),
+            if (_hasFeedback)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F9FF),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFA1E3F9)),
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check, color: Color(0xFF3674B5), size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Feedback Submitted',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF3674B5),
+                      ),
                     ),
+                  ],
+                ),
+              )
+            else
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _showFeedbackSheet,
+                  icon: const Icon(Icons.rate_review, color: Colors.white, size: 18),
+                  label: const Text(
+                    'Leave Feedback',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
-                ],
-              ),
-            )
-          else
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showFeedbackSheet,
-                icon: const Icon(Icons.rate_review, color: Colors.white, size: 18),
-                label: const Text(
-                  'Leave Feedback',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF578FCA),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  elevation: 0,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF578FCA),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    elevation: 0,
+                  ),
                 ),
               ),
-            ),
+          ],
 
           if (event.date.isAfter(DateTime.now())) ...[
             const SizedBox(height: 12),

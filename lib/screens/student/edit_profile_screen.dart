@@ -35,7 +35,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.userProfile['name'] ?? '');
-    _phoneController = TextEditingController(text: widget.userProfile['phone'] ?? '');
+    // Strip +966 prefix for display if already stored with it
+    final rawPhone = (widget.userProfile['phone'] as String? ?? '');
+    _phoneController = TextEditingController(
+      text: rawPhone.startsWith('+966') ? rawPhone.substring(4) : rawPhone,
+    );
     _bioController = TextEditingController(text: widget.userProfile['bio'] ?? '');
     _interests = List<String>.from(widget.userProfile['interests'] ?? []);
   }
@@ -56,9 +60,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     setState(() => _isSaving = true);
 
+    final phoneDigits = _phoneController.text.trim();
     final success = await _firestoreService.updateUserProfile(user.uid, {
       'name': _nameController.text.trim(),
-      'phone': _phoneController.text.trim(),
+      'phone': phoneDigits.isEmpty ? '' : '+966$phoneDigits',
       'bio': _bioController.text.trim(),
       'interests': _interests,
     });
@@ -272,12 +277,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             validator: (v) => (v == null || v.trim().isEmpty) ? 'Name is required' : null,
           ),
           const SizedBox(height: 16),
-          _buildTextField(
-            controller: _phoneController,
-            label: 'Phone Number',
-            icon: Icons.phone_outlined,
-            keyboardType: TextInputType.phone,
-          ),
+          _buildPhoneField(),
           const SizedBox(height: 16),
           _buildTextField(
             controller: _bioController,
@@ -288,6 +288,88 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPhoneField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Phone Number',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF578FCA),
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          maxLength: 9,
+          validator: (v) {
+            if (v == null || v.trim().isEmpty) return null;
+            if (!RegExp(r'^5\d{8}$').hasMatch(v.trim())) {
+              return 'Enter a valid number starting with 5 (9 digits)';
+            }
+            return null;
+          },
+          decoration: InputDecoration(
+            counterText: '',
+            hintText: '5XXXXXXXX',
+            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+            prefixIcon: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.phone_outlined,
+                      color: Color(0xFF578FCA), size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    '+966',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF3674B5),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                      width: 1,
+                      height: 20,
+                      color: const Color(0xFFDEECF8)),
+                  const SizedBox(width: 4),
+                ],
+              ),
+            ),
+            filled: true,
+            fillColor: const Color(0xFFF8FBFF),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: const Color(0xFF578FCA).withOpacity(0.2)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                  color: const Color(0xFF578FCA).withOpacity(0.2)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  const BorderSide(color: Color(0xFF3674B5), width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.red),
+            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+      ],
     );
   }
 

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
 import 'my_registrations_screen.dart';
 import 'my_clubs_screen.dart';
-import 'my_feedback_screen.dart';
 import 'edit_profile_screen.dart';
 import 'notifications_screen.dart';
 
@@ -275,6 +276,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
           ),
+
+          // Bio box
+          if ((_userProfile?['bio'] as String? ?? '').isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F9FF),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFDEECF8)),
+              ),
+              child: Text(
+                _userProfile!['bio'],
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: const Color(0xFF3674B5).withOpacity(0.75),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -481,7 +505,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           _buildActionTile(
             icon: Icons.event_note,
-            title: 'My Registrations',
+            title: 'My Registrations & Feedback',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MyRegistrationsScreen()),
@@ -493,14 +517,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MyClubsScreen()),
-            ),
-          ),
-          _buildActionTile(
-            icon: Icons.feedback,
-            title: 'My Feedback',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const MyFeedbackScreen()),
             ),
           ),
         ],
@@ -545,9 +561,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _buildActionTile(
             icon: Icons.lock_outline,
             title: 'Privacy',
-            onTap: () {
-              // TODO: Navigate to privacy settings
-            },
+            onTap: () => _showPrivacySheet(),
           ),
           _buildActionTile(
             icon: Icons.key_outlined,
@@ -555,6 +569,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onTap: () => _showChangePasswordSheet(),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showPrivacySheet() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+          builder: (context, snapshot) {
+            final data = snapshot.data?.data() as Map<String, dynamic>?;
+            final optOut = data?['sentimentOptOut'] == true;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.lock_outline, color: Colors.white, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Privacy Settings',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F4FD),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('AI Sentiment Analysis',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                            SizedBox(height: 4),
+                            Text(
+                              'Allow UniClubs to analyze your feedback using AI to improve event quality.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF578FCA)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Switch(
+                        value: !optOut,
+                        activeColor: const Color(0xFF3674B5),
+                        onChanged: (val) {
+                          FirebaseFirestore.instance.collection('users').doc(uid).update({
+                            'sentimentOptOut': !val,
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'When disabled, your feedback will not be processed by AI and will be marked as neutral.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF90A4AE)),
+                ),
+                const SizedBox(height: 16),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
