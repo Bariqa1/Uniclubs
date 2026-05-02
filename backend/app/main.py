@@ -91,7 +91,8 @@ def chat(data: Message):
         You are UniClubs Assistant.
         Help student with: finding clubs, event registration, app navigation, university activities.
         Previous conversation: {history}
-        User question: {data.message}"""
+        User question: {data.message}
+        Important: Reply in plain text only. Do not use markdown or any special formatting."""
 
         response = model.generate_content(prompt)
         ai_reply = response.text or "No response"

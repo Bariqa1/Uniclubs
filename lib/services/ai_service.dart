@@ -47,7 +47,7 @@ class AiService {
             user: m['role'] == 'ai' ? aiUser : currentUser,
             createdAt: DateTime.now(),
           );
-        }).toList().reversed.toList();
+        }).toList();
       }
       return [];
     } catch (e) {
