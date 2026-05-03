@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'admin_attendance_screen.dart';
 
 // ==========================================
 // Data Models
@@ -313,10 +314,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       mainAxisSpacing: 16,
       childAspectRatio: 1.3,
       children: [
-        _categoryCard('Engagement', Icons.trending_up_rounded),
         _categoryCard('AI Sentiment', Icons.psychology_rounded),
         _categoryCard('Attendance', Icons.people_alt_rounded),
-        _categoryCard('Compliance', Icons.shield_outlined),
       ],
     );
   }
@@ -324,16 +323,25 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Widget _categoryCard(String title, IconData icon) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AnalyticsDetailScreen(
-              categoryTitle: title,
-              selectedClub: _selectedClub,
-              selectedPeriod: _selectedPeriod,
+        if (title == 'Attendance') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AdminAttendanceScreen(),
             ),
-          ),
-        );
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AnalyticsDetailScreen(
+                categoryTitle: title,
+                selectedClub: _selectedClub,
+                selectedPeriod: _selectedPeriod,
+              ),
+            ),
+          );
+        }
       },
       child: Container(
         decoration: BoxDecoration(
@@ -506,7 +514,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             ),
             pw.SizedBox(height: 30),
             pw.Text(
-              '1. Engagement & Activity',
+              '1. Activity Overview',
               style: pw.TextStyle(
                 fontSize: 18,
                 fontWeight: pw.FontWeight.bold,
@@ -655,7 +663,7 @@ class _AnalyticsDetailScreenState extends State<AnalyticsDetailScreen> {
 
       tempEvents.sort((a, b) => b.date.compareTo(a.date));
 
-      if (widget.categoryTitle == 'AI Sentiment' || widget.categoryTitle == 'Compliance') {
+      if (widget.categoryTitle == 'AI Sentiment') {
         if (validEventIds.isNotEmpty) {
           final feedbackSnap = await db.collection('feedback').get();
           for (var doc in feedbackSnap.docs) {
@@ -832,8 +840,7 @@ class _AnalyticsDetailScreenState extends State<AnalyticsDetailScreen> {
             _buildLegendItem(const Color(0xFFF44336), 'Negative Feedback ($_neg)'),
         ],
       );
-    } else if (widget.categoryTitle == 'Attendance' ||
-        widget.categoryTitle == 'Engagement') {
+    } else if (widget.categoryTitle == 'Attendance') {
       if (_eventStats.isEmpty) {
         return const Center(
           child: Column(
@@ -958,68 +965,6 @@ class _AnalyticsDetailScreenState extends State<AnalyticsDetailScreen> {
           )
         ],
       );
-    } else if (widget.categoryTitle == 'Compliance') {
-      double avgAttendance = _eventStats.isNotEmpty
-          ? _eventStats.map((e) => e.attendanceRate).reduce((a, b) => a + b) / _eventStats.length
-          : 0.0;
-      double complianceScore = _eventStats.isEmpty ? 100.0 : avgAttendance.clamp(0.0, 100.0);
-
-      Color scoreColor = complianceScore >= 80
-          ? const Color(0xFF4CAF50)
-          : (complianceScore >= 50 ? const Color(0xFFFFC107) : const Color(0xFFF44336));
-
-      return SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const SizedBox(height: 20),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 150,
-                  height: 150,
-                  child: CircularProgressIndicator(
-                    value: complianceScore / 100,
-                    strokeWidth: 14,
-                    backgroundColor: Colors.grey[200],
-                    color: scoreColor,
-                  ),
-                ),
-                Column(
-                  children: [
-                    Text(
-                      '${complianceScore.toInt()}%',
-                      style: TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: scoreColor
-                      ),
-                    ),
-                    const Text('Health', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const Text(
-                'Overall Compliance & Health Score',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Based on event execution, attendance, and feedback rates.',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            _buildComplianceRow('Activity Quota Met', true),
-            _buildComplianceRow('System & Safety Guidelines Adherence', true),
-            _buildComplianceRow('Attendance Threshold Reached (>50%)', complianceScore >= 50),
-            _buildComplianceRow('Active Feedback Collection', (_pos + _neg + _neu) > 0),
-          ],
-        ),
-      );
     }
 
     return const Center(
@@ -1044,59 +989,6 @@ class _AnalyticsDetailScreenState extends State<AnalyticsDetailScreen> {
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
         ),
       ],
-    );
-  }
-
-  Widget _buildComplianceRow(String title, bool isCompliant) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          )
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isCompliant ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isCompliant ? Icons.check_circle_rounded : Icons.cancel_rounded,
-              color: isCompliant ? Colors.green : Colors.red,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: Color(0xFF1E3A8A),
-              ),
-            ),
-          ),
-          Text(
-            isCompliant ? 'Passed' : 'Action Needed',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: isCompliant ? Colors.green : Colors.red,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

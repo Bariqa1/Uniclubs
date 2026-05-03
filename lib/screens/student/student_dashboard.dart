@@ -266,27 +266,34 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _userName.isNotEmpty ? 'Welcome, $_userName!' : 'Welcome!',
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF3674B5),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _userName.isNotEmpty ? 'Welcome, ${_userName.trim().split(' ').first}!' : 'Welcome!',
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF3674B5),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Discover new events and clubs',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: const Color(0xFF578FCA), // Safe color fallback
+                const SizedBox(height: 4),
+                const Text(
+                  'Discover new events and clubs',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF578FCA),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          const SizedBox(width: 16),
           StreamBuilder<int>(
             stream: NotificationService().unreadCountStream(),
             builder: (context, snapshot) {

@@ -5,6 +5,7 @@ import 'admin_leaders_screen.dart';
 import 'admin_reports_screen.dart';
 import 'admin_attendance_screen.dart';
 import 'widgets/admin_header.dart';
+import 'admin_students_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -19,7 +20,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final List<Widget> _screens = [
     const AdminHomeScreen(),
     const AdminManagementScreen(),
-    const AdminAttendanceScreen(),
     const AdminReportsScreen(),
   ];
 
@@ -39,7 +39,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Dashboard'),
           BottomNavigationBarItem(icon: Icon(Icons.folder_shared_rounded), label: 'Management'),
-          BottomNavigationBarItem(icon: Icon(Icons.how_to_reg_rounded), label: 'Attendance'),
           BottomNavigationBarItem(icon: Icon(Icons.insert_chart_outlined_rounded), label: 'Reports'),
         ],
       ),
@@ -53,7 +52,7 @@ class AdminManagementScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Scaffold(
         backgroundColor: const Color(0xFFE8F4FD),
         appBar: AppBar(
@@ -69,6 +68,7 @@ class AdminManagementScreen extends StatelessWidget {
             tabs: [
               Tab(text: 'Clubs'),
               Tab(text: 'Leaders'),
+              Tab(text: 'Students'),
             ],
           ),
         ),
@@ -76,6 +76,7 @@ class AdminManagementScreen extends StatelessWidget {
           children: [
             AdminClubsScreen(userRole: 'admin'),
             AdminLeadersScreen(),
+            AdminStudentsScreen(),
           ],
         ),
       ),
