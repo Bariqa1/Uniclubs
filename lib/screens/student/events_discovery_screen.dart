@@ -370,50 +370,38 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen>
 
   Widget _buildTabs() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF578FCA).withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
       child: TabBar(
         controller: _tabController,
+        dividerColor: Colors.transparent, // 🔥 هذا يحذف الخط
         indicator: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
           ),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
         ),
+        indicatorSize: TabBarIndicatorSize.tab,
         labelColor: Colors.white,
         unselectedLabelColor: const Color(0xFF578FCA),
-        labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        labelStyle: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 15,
+        ),
         tabs: const [
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.upcoming, size: 20),
-                SizedBox(width: 8),
-                Text('Upcoming'),
-              ],
-            ),
-          ),
-          Tab(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.history, size: 20),
-                SizedBox(width: 8),
-                Text('Past'),
-              ],
-            ),
-          ),
+          Tab(text: "Upcoming"),
+          Tab(text: "Past"),
         ],
       ),
     );

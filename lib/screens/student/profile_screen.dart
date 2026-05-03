@@ -638,7 +638,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(width: 12),
                       Switch(
                         value: !optOut,
-                        activeColor: const Color(0xFF3674B5),
+                        activeThumbColor: const Color(0xFF3674B5),
                         onChanged: (val) {
                           FirebaseFirestore.instance.collection('users').doc(uid).update({
                             'sentimentOptOut': !val,

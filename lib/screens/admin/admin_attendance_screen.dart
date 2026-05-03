@@ -11,13 +11,21 @@ class AdminAttendanceScreen extends StatefulWidget {
 class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
   String _searchQuery = "";
   final TextEditingController _searchCtrl = TextEditingController();
+  String _selectedCategory = 'All';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE8F4FD),
       appBar: AppBar(
-        title: const Text('Attendance Analytics', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
+        title: const Text('Attendance Analytics',
+            style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
@@ -26,7 +34,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
       body: Column(
         children: [
           _buildSummaryStats(),
+          _buildCategoryFilter(),
           _buildSearchField(),
+          const SizedBox(height: 10),
           Expanded(child: _buildEventsList()),
         ],
       ),
@@ -35,10 +45,22 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
 
   Widget _buildSummaryStats() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('registrations').where('status', isEqualTo: 'attended').snapshots(),
+      stream: FirebaseFirestore.instance.collection('feedback').snapshots(),
       builder: (context, snapshot) {
-        int totalAttended = snapshot.hasData ? snapshot.data!.docs.length : 0;
-        
+        double globalSatisfaction = 0.0;
+        int totalFeedback = 0;
+
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          totalFeedback = snapshot.data!.docs.length;
+          double totalScore = 0.0;
+
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            totalScore += (data['sentimentScore'] ?? 0.5);
+          }
+          globalSatisfaction = (totalScore / totalFeedback) * 100;
+        }
+
         return Padding(
           padding: const EdgeInsets.all(20),
           child: Container(
@@ -46,14 +68,20 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [Color(0xFF3674B5), Color(0xFF578FCA)]),
               borderRadius: BorderRadius.circular(24),
-              boxShadow: [BoxShadow(color: const Color(0xFF3674B5).withValues(alpha: 0.2), blurRadius: 15, offset: const Offset(0, 8))],
+              boxShadow: [
+                BoxShadow(
+                    color: const Color(0xFF3674B5).withValues(alpha: 0.2),
+                    blurRadius: 15,
+                    offset: const Offset(0, 8))
+              ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _summaryItem('Total Attendance', '$totalAttended', Icons.people_alt_rounded),
+                _summaryItem('Total Feedback', '$totalFeedback', Icons.comment_rounded),
                 Container(width: 1, height: 40, color: Colors.white.withValues(alpha: 0.3)),
-                _summaryItem('Global Satisfaction', '84%', Icons.sentiment_very_satisfied_rounded),
+                _summaryItem('Global Satisfaction', '${globalSatisfaction.toInt()}%',
+                    Icons.sentiment_very_satisfied_rounded),
               ],
             ),
           ),
@@ -67,9 +95,54 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
       children: [
         Icon(icon, color: Colors.white.withValues(alpha: 0.8), size: 20),
         const SizedBox(height: 8),
-        Text(value, style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+        Text(value,
+            style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
         Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 11)),
       ],
+    );
+  }
+
+  Widget _buildCategoryFilter() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('categories').orderBy('name').snapshots(),
+      builder: (context, snapshot) {
+        List<String> dynamicCategories = ['All'];
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            dynamicCategories.add(doc['name'].toString());
+          }
+        }
+
+        return Container(
+          height: 50,
+          margin: const EdgeInsets.symmetric(vertical: 10),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            itemCount: dynamicCategories.length,
+            itemBuilder: (context, index) {
+              String cat = dynamicCategories[index];
+              bool isSelected = _selectedCategory == cat;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(cat[0].toUpperCase() + cat.substring(1)),
+                  selected: isSelected,
+                  onSelected: (val) => setState(() => _selectedCategory = cat),
+                  selectedColor: const Color(0xFF3674B5),
+                  labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.grey[700],
+                      fontWeight: FontWeight.bold),
+                  backgroundColor: Colors.white,
+                  showCheckmark: false,
+                  side: BorderSide(
+                      color: isSelected ? Colors.transparent : Colors.grey.withValues(alpha: 0.2)),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -84,7 +157,8 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
           prefixIcon: const Icon(Icons.search, color: Color(0xFF3674B5)),
           filled: true,
           fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          border:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
           contentPadding: const EdgeInsets.symmetric(vertical: 0),
         ),
       ),
@@ -93,19 +167,33 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
 
   Widget _buildEventsList() {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('events').orderBy('date', descending: true).snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('events')
+          .where('date', isLessThan: Timestamp.now())
+          .orderBy('date', descending: true)
+          .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-        
+
         final docs = snapshot.data!.docs.where((doc) {
-          final title = (doc['title'] ?? '').toString().toLowerCase();
-          return title.contains(_searchQuery);
+          final data = doc.data() as Map<String, dynamic>;
+          final title = (data['title'] ?? '').toString().toLowerCase();
+          final category = (data['category'] ?? '').toString().toLowerCase();
+
+          bool matchesSearch = title.contains(_searchQuery);
+          bool matchesCategory =
+              _selectedCategory == 'All' || category == _selectedCategory.toLowerCase();
+
+          return matchesSearch && matchesCategory;
         }).toList();
 
-        if (docs.isEmpty) return const Center(child: Text("No events found."));
+        if (docs.isEmpty) {
+          return const Center(child: Text("No past events found for this category."));
+        }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           itemCount: docs.length,
           itemBuilder: (context, index) {
             final data = docs[index].data() as Map<String, dynamic>;
@@ -118,7 +206,11 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
 
   Widget _buildEventAttendanceCard(String eventId, Map<String, dynamic> data) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('registrations').where('eventId', isEqualTo: eventId).where('status', isEqualTo: 'attended').snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('registrations')
+          .where('eventId', isEqualTo: eventId)
+          .where('status', isEqualTo: 'attended')
+          .snapshots(),
       builder: (context, snap) {
         final actual = snap.hasData ? snap.data!.docs.length : 0;
         final registered = (data['currentRegistrations'] ?? 0).toInt();
@@ -140,7 +232,9 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Text(data['title'] ?? 'Event', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E3A8A))),
+                    child: Text(data['title'] ?? 'Event',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E3A8A))),
                   ),
                   _buildStatusBadge(rate),
                 ],
@@ -151,15 +245,19 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                 children: [
                   _detailStat('Predicted', '$predicted', const Color(0xFF578FCA)),
                   _detailStat('Actual', '$actual', const Color(0xFF2ECC71)),
-                  _detailStat('Diff', '${actual - predicted}', (actual - predicted) >= 0 ? Colors.green : Colors.red),
+                  _detailStat('Diff', '${actual - predicted}',
+                      (actual - predicted) >= 0 ? Colors.green : Colors.red),
                 ],
               ),
               const SizedBox(height: 20),
               Row(
                 children: [
-                  const Text('Attendance Rate', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                  const Text('Attendance Rate',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
                   const Spacer(),
-                  Text('${(rate * 100).toInt()}%', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF3674B5))),
+                  Text('${(rate * 100).toInt()}%',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF3674B5))),
                 ],
               ),
               const SizedBox(height: 8),
@@ -169,7 +267,8 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
                   value: rate,
                   minHeight: 8,
                   backgroundColor: const Color(0xFFF1F5F9),
-                  valueColor: AlwaysStoppedAnimation<Color>(rate > 0.8 ? Colors.green : (rate > 0.5 ? Colors.orange : Colors.red)),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                      rate > 0.8 ? Colors.green : (rate > 0.5 ? Colors.orange : Colors.red)),
                 ),
               ),
             ],
@@ -182,10 +281,11 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
   Widget _buildStatusBadge(double rate) {
     String text = rate > 0.8 ? "High Success" : (rate > 0.5 ? "Good" : "Low Attendance");
     Color color = rate > 0.8 ? Colors.green : (rate > 0.5 ? Colors.orange : Colors.red);
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+      decoration:
+          BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
       child: Text(text, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
@@ -195,7 +295,8 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen> {
       children: [
         Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500)),
+        Text(label,
+            style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w500)),
       ],
     );
   }

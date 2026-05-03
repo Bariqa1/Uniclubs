@@ -180,7 +180,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         Color statusColor = healthScore >= 0.8 ? Colors.green : (healthScore >= 0.5 ? Colors.orange : Colors.red);
 
         finalInsights.add({
-          'id': id, // MODIFICATION 1: Storing the club ID
+          'id': id,
           'name': clubNames[id] ?? 'Club',
           'healthScore': healthScore,
           'satisfaction': satisfaction,
@@ -321,7 +321,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                             MaterialPageRoute(
                               builder: (context) => ClubFeedbackScreen(
                                 clubName: club['name'],
-                                clubId: club['id'], // MODIFICATION 2: Passing the clubId to the next screen
+                                clubId: club['id'],
                               ),
                             ),
                           );
@@ -415,9 +415,6 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
   }
 }
 
-// ==========================================
-// MODIFICATION 3: The Smart Club Feedback Screen
-// ==========================================
 class ClubFeedbackScreen extends StatefulWidget {
   final String clubName;
   final String clubId;
@@ -430,7 +427,6 @@ class ClubFeedbackScreen extends StatefulWidget {
 
 class _ClubFeedbackScreenState extends State<ClubFeedbackScreen> {
 
-  // This function acts as the "Bridge". It gets the events for the club, then gets the feedback for those events.
   Future<List<Map<String, dynamic>>> _fetchFeedbackReliably() async {
     final db = FirebaseFirestore.instance;
     try {
@@ -515,7 +511,7 @@ class _ClubFeedbackScreenState extends State<ClubFeedbackScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-              data['comment'] ?? data['text'] ?? '', // Supporting both 'text' and 'comment' fields
+              data['comment'] ?? data['text'] ?? '',
               style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.4)
           ),
           const Divider(height: 24, color: Color(0xFFF4F8FB)),

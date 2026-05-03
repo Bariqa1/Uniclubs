@@ -345,18 +345,22 @@ class FirestoreService {
     return {...snap.docs.first.data(), 'feedbackId': snap.docs.first.id};
   }
 
-  Future<bool> submitFeedback({required String userId, required String eventId, required int rating, required String comment}) async {
+  Future<bool> submitFeedback({required String userId, required String eventId, required String comment}) async {
     try {
       await _firestore.collection('feedback').add({
         'userId': userId,
         'eventId': eventId,
-        'rating': rating,
         'comment': comment,
         'createdAt': FieldValue.serverTimestamp(),
-        'sentimentLabel': null
+        'sentimentLabel': null,
+        'sentimentScore': null,
+        'aiStatus': 'pending',
       });
       return true;
-    } catch (e) { return false; }
+    } catch (e) {
+      debugPrint("Error in submitFeedback: $e");
+      return false;
+    }
   }
 
   // ============================================

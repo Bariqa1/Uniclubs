@@ -760,7 +760,7 @@ class _EventPageState extends State<EventPage> with SingleTickerProviderStateMix
                         builder: (_) => EventAttendeesScreen(
                           eventId: doc.id,
                           eventTitle: data['title'] ?? 'Event',
-                          eventDate: eventDate!, // Null check is fine here due to context
+                          eventDate: eventDate, // Null check is fine here due to context
                         ),
                       ),
                     ),

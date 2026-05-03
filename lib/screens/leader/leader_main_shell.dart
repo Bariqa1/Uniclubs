@@ -38,7 +38,8 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF3674B5))));
+          return const Scaffold(body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF3674B5))));
         }
 
         final myClubs = snapshot.data?.docs ?? [];
@@ -52,7 +53,8 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
               actions: [
                 IconButton(
                   onPressed: _handleLogout,
-                  icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                  icon: const Icon(
+                      Icons.logout_rounded, color: Colors.redAccent),
                   tooltip: "Logout",
                 ),
               ],
@@ -66,7 +68,8 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) setState(() => _selectedClubId = myClubs.first.id);
             });
-            return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF3674B5))));
+            return const Scaffold(body: Center(
+                child: CircularProgressIndicator(color: Color(0xFF3674B5))));
           } else {
             return _buildClubSelectionScreen(myClubs);
           }
@@ -81,7 +84,8 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) setState(() => _selectedClubId = null);
           });
-          return const Scaffold(body: Center(child: CircularProgressIndicator(color: Color(0xFF3674B5))));
+          return const Scaffold(body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF3674B5))));
         }
 
         final List<Widget> pages = [
@@ -98,16 +102,23 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Active Club:", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                Text(activeClubDoc['name'] ?? 'Club', style: const TextStyle(color: Color(0xFF3674B5), fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text("Active Club:",
+                    style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(activeClubDoc['name'] ?? 'Club', style: const TextStyle(
+                    color: Color(0xFF3674B5),
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
               ],
             ),
             actions: [
               if (myClubs.length > 1)
                 TextButton.icon(
                   onPressed: () => setState(() => _selectedClubId = null),
-                  icon: const Icon(Icons.swap_horiz_rounded, color: Color(0xFF3674B5), size: 18),
-                  label: const Text("Switch", style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
+                  icon: const Icon(
+                      Icons.swap_horiz_rounded, color: Color(0xFF3674B5),
+                      size: 18),
+                  label: const Text("Switch", style: TextStyle(
+                      color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
@@ -122,10 +133,14 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
             backgroundColor: Colors.white,
             type: BottomNavigationBarType.fixed,
             items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.dashboard_rounded), label: 'Stats'),
-              BottomNavigationBarItem(icon: Icon(Icons.event_note_rounded), label: 'Events'),
-              BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: 'Members'),
-              BottomNavigationBarItem(icon: Icon(Icons.account_balance_rounded), label: 'Profile'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.dashboard_rounded), label: 'Stats'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.event_note_rounded), label: 'Events'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.people_rounded), label: 'Members'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.account_balance_rounded), label: 'Profile'),
             ],
           ),
         );
@@ -135,11 +150,12 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
 
   Widget _buildClubSelectionScreen(List<QueryDocumentSnapshot> clubs) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: const Color(0xFFE8F4FD),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFFE8F4FD),
         elevation: 0,
-        title: const Text("Select Club to Manage", style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
+        title: const Text("Select Club to Manage", style: TextStyle(
+            color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           IconButton(
@@ -158,47 +174,61 @@ class _ClubLeaderMainShellState extends State<ClubLeaderMainShell> {
           ),
         ),
         child: ListView.builder(
-        padding: const EdgeInsets.all(24),
-        itemCount: clubs.length,
-        itemBuilder: (context, index) {
-          final data = clubs[index].data() as Map<String, dynamic>;
-          return GestureDetector(
-            onTap: () => setState(() {
-              _selectedClubId = clubs[index].id;
-              _selectedIndex = 0;
-            }),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(color: Color(0xFFE8F4FD), shape: BoxShape.circle),
-                    child: const Icon(Icons.star_rounded, color: Color(0xFF3674B5), size: 28),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(data['name'] ?? 'Club Name', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-                        Text((data['category'] ?? 'General').toString().toUpperCase(), style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      ],
+          padding: const EdgeInsets.all(24),
+          itemCount: clubs.length,
+          itemBuilder: (context, index) {
+            final data = clubs[index].data() as Map<String, dynamic>;
+            return GestureDetector(
+              onTap: () =>
+                  setState(() {
+                    _selectedClubId = clubs[index].id;
+                    _selectedIndex = 0;
+                  }),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 10)
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                          color: Color(0xFFE8F4FD), shape: BoxShape.circle),
+                      child: const Icon(
+                          Icons.star_rounded, color: Color(0xFF3674B5),
+                          size: 28),
                     ),
-                  ),
-                  const Icon(Icons.arrow_forward_ios_rounded, size: 18, color: Color(0xFF3674B5)),
-                ],
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(data['name'] ?? 'Club Name',
+                              style: const TextStyle(fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1E3A8A))),
+                          Text((data['category'] ?? 'General')
+                              .toString()
+                              .toUpperCase(), style: const TextStyle(
+                              fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, size: 18,
+                        color: Color(0xFF3674B5)),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
       ),
     );
   }

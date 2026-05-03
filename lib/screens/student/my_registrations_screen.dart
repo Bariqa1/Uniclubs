@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/firestore_service.dart';
+import '../../services/sentiment_service.dart';
 import '../../models/event_model.dart';
 import 'event_detail_screen.dart';
 
@@ -41,7 +42,7 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
           final eventId = reg['id'] as String? ?? '';
           if (eventId.isNotEmpty) {
             feedbackMap[eventId] =
-                await _firestoreService.getFeedbackForEvent(user.uid, eventId);
+            await _firestoreService.getFeedbackForEvent(user.uid, eventId);
           }
         }
       }
@@ -65,11 +66,11 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
         eventId: eventId,
         eventTitle: eventTitle,
         firestoreService: _firestoreService,
-        onSubmitted: (int rating, String comment) async {
+        onSubmitted: (String comment) async {
           final user = FirebaseAuth.instance.currentUser;
           if (user == null) return;
           final data = await _firestoreService.getFeedbackForEvent(user.uid, eventId);
-          setState(() => _feedbackData[eventId] = data ?? {'rating': rating, 'comment': comment});
+          setState(() => _feedbackData[eventId] = data ?? {'comment': comment});
         },
       ),
     );
@@ -122,12 +123,16 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          const Text(
-            'My Registrations & Feedback',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF3674B5),
+          const Expanded(
+            child: Text(
+              'My Registrations & Feedback',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF3674B5),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -200,7 +205,7 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: _getGradientColors(category)),
                 borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(20)),
+                const BorderRadius.vertical(top: Radius.circular(20)),
               ),
             ),
             Padding(
@@ -213,7 +218,7 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
                     height: 50,
                     decoration: BoxDecoration(
                       gradient:
-                          LinearGradient(colors: _getGradientColors(category)),
+                      LinearGradient(colors: _getGradientColors(category)),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Center(
@@ -246,7 +251,7 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   color:
-                                      const Color(0xFF578FCA).withOpacity(0.8),
+                                  const Color(0xFF578FCA).withOpacity(0.8),
                                 ),
                               ),
                             ),
@@ -287,32 +292,32 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
                 child: submittedFeedback != null
                     ? _buildSubmittedFeedback(submittedFeedback)
                     : SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () => _showFeedbackSheet(
-                            eventId,
-                            eventData['title'] ?? 'Event',
-                          ),
-                          icon: const Icon(Icons.star_rounded,
-                              size: 16, color: Colors.white),
-                          label: const Text(
-                            'Leave Feedback',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3674B5),
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 10),
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                          ),
-                        ),
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showFeedbackSheet(
+                      eventId,
+                      eventData['title'] ?? 'Event',
+                    ),
+                    icon: const Icon(Icons.rate_review_rounded,
+                        size: 16, color: Colors.white),
+                    label: const Text(
+                      'Leave Feedback',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3674B5),
+                      padding:
+                      const EdgeInsets.symmetric(vertical: 10),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
               ),
           ],
         ),
@@ -321,7 +326,6 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
   }
 
   Widget _buildSubmittedFeedback(Map<String, dynamic> feedback) {
-    final rating = (feedback['rating'] as num?)?.toInt() ?? 0;
     final comment = feedback['comment'] as String? ?? '';
 
     return Container(
@@ -336,31 +340,17 @@ class _MyRegistrationsScreenState extends State<MyRegistrationsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: [
-              const Icon(Icons.rate_review_rounded,
+            children: const [
+              Icon(Icons.rate_review_rounded,
                   size: 15, color: Color(0xFF3674B5)),
-              const SizedBox(width: 6),
-              const Text(
+              SizedBox(width: 6),
+              Text(
                 'Your Feedback',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF3674B5),
                 ),
-              ),
-              const Spacer(),
-              Row(
-                children: List.generate(5, (i) {
-                  return Icon(
-                    (i + 1) <= rating
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    size: 16,
-                    color: (i + 1) <= rating
-                        ? const Color(0xFFFFC107)
-                        : const Color(0xFFCCDDEE),
-                  );
-                }),
               ),
             ],
           ),
@@ -491,7 +481,7 @@ class _FeedbackSheet extends StatefulWidget {
   final String eventId;
   final String eventTitle;
   final FirestoreService firestoreService;
-  final void Function(int rating, String comment) onSubmitted;
+  final void Function(String comment) onSubmitted;
 
   const _FeedbackSheet({
     required this.eventId,
@@ -505,7 +495,6 @@ class _FeedbackSheet extends StatefulWidget {
 }
 
 class _FeedbackSheetState extends State<_FeedbackSheet> {
-  int _rating = 0;
   final _commentController = TextEditingController();
   bool _isSubmitting = false;
 
@@ -516,9 +505,9 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
   }
 
   Future<void> _submit() async {
-    if (_rating == 0) {
+    if (_commentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a rating')),
+        const SnackBar(content: Text('Please enter your feedback')),
       );
       return;
     }
@@ -529,15 +518,33 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
     final ok = await widget.firestoreService.submitFeedback(
       userId: userId,
       eventId: widget.eventId,
-      rating: _rating,
       comment: _commentController.text,
     );
+
+    if (ok) {
+      try {
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('feedback')
+            .where('userId', isEqualTo: userId)
+            .where('eventId', isEqualTo: widget.eventId)
+            .limit(1)
+            .get();
+
+        if (querySnapshot.docs.isNotEmpty) {
+          final feedbackId = querySnapshot.docs.first.id;
+
+          SentimentService().analyzeFeedback(feedbackId, _commentController.text);
+        }
+      } catch (e) {
+        debugPrint("Error fetching feedback ID for sentiment analysis: $e");
+      }
+    }
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
     if (ok) {
-      widget.onSubmitted(_rating, _commentController.text);
+      widget.onSubmitted(_commentController.text);
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -602,55 +609,9 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                 ),
                 const SizedBox(height: 24),
 
-                // Star rating
-                const Text(
-                  'How was the event?',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF3674B5),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (i) {
-                    final star = i + 1;
-                    return GestureDetector(
-                      onTap: () => setState(() => _rating = star),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(
-                          star <= _rating
-                              ? Icons.star_rounded
-                              : Icons.star_outline_rounded,
-                          size: 42,
-                          color: star <= _rating
-                              ? const Color(0xFFFFC107)
-                              : const Color(0xFFCCDDEE),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-                if (_rating > 0) ...[
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text(
-                      _ratingLabel(_rating),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF578FCA),
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 20),
-
                 // Comment
                 const Text(
-                  'Any comments? (optional)',
+                  'Your comments',
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -692,19 +653,19 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
                     ),
                     child: _isSubmitting
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
                         : const Text(
-                            'Submit Feedback',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
+                      'Submit Feedback',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -713,16 +674,5 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
         ),
       ),
     );
-  }
-
-  String _ratingLabel(int r) {
-    switch (r) {
-      case 1: return 'Poor';
-      case 2: return 'Fair';
-      case 3: return 'Good';
-      case 4: return 'Great';
-      case 5: return 'Excellent!';
-      default: return '';
-    }
   }
 }

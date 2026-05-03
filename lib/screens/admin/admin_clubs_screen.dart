@@ -3,7 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'widgets/admin_club_card.dart';
-import 'club_overview_page.dart';
+// import 'club_overview_page.dart';
+import '../leader/club_profile_page.dart';
 import 'admin_pending_requests_screen.dart';
 
 class AdminClubsScreen extends StatefulWidget {
@@ -19,8 +20,6 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _selectedCategoryFilter = 'All';
-
-  final List<String> _categories = ['All', 'Tech', 'Sports', 'Arts', 'Academic', 'Social'];
 
   @override
   void dispose() {
@@ -227,42 +226,50 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
   }
 
   Widget _buildCategoryFilter() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          ..._categories.map((cat) {
-            bool isSelected = _selectedCategoryFilter == cat;
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('categories').orderBy('name').snapshots(),
+      builder: (context, snapshot) {
+        List<String> dynamicCategories = ['All'];
 
-            return Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: ChoiceChip(
-                label: Text(cat),
-                selected: isSelected,
-                onSelected: (selected) =>
-                    setState(() => _selectedCategoryFilter = cat),
-                selectedColor: const Color(0xFF5B9FD8),
-                labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : Colors.grey[700],
-                    fontWeight: FontWeight.bold),
-                backgroundColor: Colors.white,
-                showCheckmark: false,
-                side: BorderSide(
-                    color: isSelected
-                        ? Colors.transparent
-                        : Colors.grey.withValues(alpha: 0.2)),
-              ),
-            );
-          }),
-          if (widget.userRole == 'admin')
-            ActionChip(
-              avatar: const Icon(Icons.add, size: 18),
-              label: const Text('Add Category'),
-              onPressed: _showAddCategoryDialog,
-              backgroundColor: Colors.white,
-            )
-        ],
-      ),
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            dynamicCategories.add(doc['name'].toString());
+          }
+        }
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ...dynamicCategories.map((cat) {
+                bool isSelected = _selectedCategoryFilter == cat;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ChoiceChip(
+                    label: Text(cat[0].toUpperCase() + cat.substring(1)),
+                    selected: isSelected,
+                    onSelected: (selected) => setState(() => _selectedCategoryFilter = cat),
+                    selectedColor: const Color(0xFF5B9FD8),
+                    labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : Colors.grey[700],
+                        fontWeight: FontWeight.bold),
+                    backgroundColor: Colors.white,
+                    showCheckmark: false,
+                    side: BorderSide(color: isSelected ? Colors.transparent : Colors.grey.withValues(alpha: 0.2)),
+                  ),
+                );
+              }),
+              if (widget.userRole == 'admin')
+                ActionChip(
+                  avatar: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Category'),
+                  onPressed: _showAddCategoryDialog,
+                  backgroundColor: Colors.white,
+                )
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -317,7 +324,7 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ClubOverviewPage(
+                    builder: (_) => ClubProfilePage(
                       clubDoc: filteredClubs[index],
                       userRole: widget.userRole,
                     ),
@@ -377,26 +384,25 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Add Category'),
+        title: const Text('Add New Category'),
         content: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            hintText: 'Category name',
-          ),
+          decoration: const InputDecoration(hintText: 'e.g., Media, Health...'),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
-              String value = controller.text.trim();
-              if (value.isNotEmpty && !_categories.contains(value)) {
-                setState(() {
-                  _categories.add(value);
+            onPressed: () async {
+              String value = controller.text.trim().toLowerCase();
+              if (value.isNotEmpty) {
+                await FirebaseFirestore.instance.collection('categories').add({
+                  'name': value,
+                  'createdAt': FieldValue.serverTimestamp(),
                 });
               }
-              Navigator.pop(ctx);
+              if (ctx.mounted) Navigator.pop(ctx);
             },
-            child: const Text('Add'),
+            child: const Text('Add To System'),
           )
         ],
       ),
@@ -493,28 +499,49 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
                         }
                     ),
 
-                    DropdownMenu<String>(
-                      width: sheetWidth,
-                      initialSelection: 'tech',
-                      label: const Text('Category'),
-                      menuStyle: MenuStyle(
-                        backgroundColor: WidgetStateProperty.all(Colors.white),
-                        surfaceTintColor: WidgetStateProperty.all(Colors.white),
-                        shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                      ),
-                      inputDecorationTheme: InputDecorationTheme(
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
-                      ),
-                      onSelected: (val) => setSheetState(() => category = val!),
-                      dropdownMenuEntries: const [
-                        DropdownMenuEntry(value: 'tech', label: 'Technology'),
-                        DropdownMenuEntry(value: 'sports', label: 'Sports'),
-                        DropdownMenuEntry(value: 'arts', label: 'Arts & Culture'),
-                        DropdownMenuEntry(value: 'academic', label: 'Academic'),
-                        DropdownMenuEntry(value: 'social', label: 'Social'),
-                      ],
+                    StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance.collection('categories').orderBy('name').snapshots(),
+                      builder: (context, snapshot) {
+                        List<DropdownMenuEntry<String>> categoryEntries = [];
+                        if (snapshot.hasData) {
+                          categoryEntries = snapshot.data!.docs.map((doc) {
+                            String name = doc['name'].toString();
+                            return DropdownMenuEntry(
+                              value: name.toLowerCase(),
+                              label: name[0].toUpperCase() + name.substring(1),
+                            );
+                          }).toList();
+                        }
+
+                        if (categoryEntries.isEmpty) {
+                          return const SizedBox(
+                            height: 56,
+                            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                          );
+                        }
+
+                        if (!categoryEntries.any((e) => e.value == category)) {
+                          category = categoryEntries.first.value;
+                        }
+
+                        return DropdownMenu<String>(
+                          width: sheetWidth,
+                          initialSelection: category,
+                          label: const Text('Category'),
+                          menuStyle: MenuStyle(
+                            backgroundColor: WidgetStateProperty.all(Colors.white),
+                            surfaceTintColor: WidgetStateProperty.all(Colors.white),
+                            shape: WidgetStateProperty.all(RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                          ),
+                          inputDecorationTheme: InputDecorationTheme(
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
+                          ),
+                          onSelected: (val) => setSheetState(() => category = val!),
+                          dropdownMenuEntries: categoryEntries,
+                        );
+                      }
                     ),
                     const SizedBox(height: 28),
 
@@ -613,7 +640,7 @@ class _AdminClubsScreenState extends State<AdminClubsScreen> {
                         setDialogState(() => isAdding = true);
                         try {
                           String email = emailCtrl.text.trim().toLowerCase();
-                          
+
                           // Check if user already exists
                           var userQuery = await FirebaseFirestore.instance.collection('users')
                               .where('email', isEqualTo: email)

@@ -10,7 +10,7 @@ from app.chat_service import *
 import os
 import json
 from app.ai.attendance_predictor import AttendancePredictor
-
+from app.routes.sentiment_routes import router as sentiment_router
 
 load_dotenv()
 attendance_predictor = AttendancePredictor()
@@ -126,6 +126,8 @@ class AttendanceRequest(BaseModel):
     category_Sports: int = 0
     category_Technology: int = 0
 
+app.include_router(recommendations.router, prefix="/api")
+app.include_router(sentiment_router)
 
 @app.post("/predict-attendance")
 def predict_attendance(data: AttendanceRequest):

@@ -45,6 +45,7 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
             backgroundColor: Colors.white,
             elevation: 0,
             centerTitle: true,
+            iconTheme: const IconThemeData(color: Color(0xFF1E3A8A)),
             title: Row(
               children: [
                 Expanded(
@@ -57,6 +58,13 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
               ],
             ),
             actions: [
+              // زر التعديل للأدمن (تعديل مباشر)
+              if (widget.userRole == "admin")
+                IconButton(
+                  icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF3674B5), size: 28),
+                  onPressed: () => _showAdminEditDialog(context, clubData),
+                ),
+              // زر طلب التعديل لليدر
               if (widget.userRole == "leader")
                 IconButton(
                   icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF3674B5), size: 24),
@@ -200,7 +208,7 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
             ],
           ),
           const SizedBox(height: 20),
-          Text(data['bio'] ?? "Welcome to our club!", style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+          Text(data['bio'] ?? "Welcome to our club! This club participates in university activities, events, and student engagement programs.", style: TextStyle(fontSize: 14, color: Colors.grey[600], height: 1.5)),
           const Divider(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -306,7 +314,6 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Club name header
               Row(
                 children: [
                   Container(
@@ -418,7 +425,6 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   children: [
                     Container(
@@ -448,20 +454,13 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
                   ],
                 ),
                 const SizedBox(height: 18),
-
-                // Title field
                 _dialogField(titleCtrl, 'Title', 'e.g. Club Meeting Recap', maxLines: 1),
                 const SizedBox(height: 12),
-
-                // Content field
                 _dialogField(contentCtrl, 'Description', 'What would you like to share?', maxLines: 3),
                 const SizedBox(height: 12),
-
-                // Image URL field
                 _dialogField(imageUrlCtrl, 'Image URL (optional)', 'https://...', maxLines: 1),
                 const SizedBox(height: 8),
 
-                // Live preview
                 ValueListenableBuilder<TextEditingValue>(
                   valueListenable: imageUrlCtrl,
                   builder: (_, val, __) {
@@ -497,7 +496,6 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
                 ),
                 const SizedBox(height: 20),
 
-                // Submit button
                 SizedBox(
                   width: double.infinity,
                   height: 46,
@@ -579,6 +577,50 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: Color(0xFF578FCA), width: 1.5)),
+      ),
+    );
+  }
+
+  // إضافة: دالة تعديل الأدمن التي تم سحبها من الصفحة الملغاة
+  void _showAdminEditDialog(BuildContext context, Map<String, dynamic> currentData) {
+    final nameCtrl = TextEditingController(text: currentData['name'] ?? '');
+    final categoryCtrl = TextEditingController(text: currentData['category'] ?? '');
+    final bioCtrl = TextEditingController(text: currentData['bio'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Edit Club Info', style: TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Club Name')),
+              const SizedBox(height: 10),
+              TextField(controller: categoryCtrl, decoration: const InputDecoration(labelText: 'Category')),
+              const SizedBox(height: 10),
+              TextField(controller: bioCtrl, maxLines: 3, decoration: const InputDecoration(labelText: 'Overview / Bio')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3674B5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            onPressed: () async {
+              await FirebaseFirestore.instance.collection('clubs').doc(widget.clubDoc.id).update({
+                'name': nameCtrl.text.trim(),
+                'category': categoryCtrl.text.trim(),
+                'bio': bioCtrl.text.trim(),
+              });
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+            },
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
