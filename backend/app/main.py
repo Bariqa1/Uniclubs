@@ -6,7 +6,7 @@ from pydantic import BaseModel
 import google.generativeai as genai
 import firebase_admin
 from firebase_admin import credentials, firestore
-from app.chat_service import *
+from app.services.chat_service import *
 import os
 import json
 from app.ai.attendance_predictor import AttendancePredictor

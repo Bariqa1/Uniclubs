@@ -60,6 +60,16 @@ backend/**/__pycache__/
 backend/**/*.pyc
 backend/.pytest_cache/
 
+# Jupyter
+**/.ipynb_checkpoints/
+
+# Anaconda Navigator local state
+anaconda_projects/
+
+# Generated ML artifacts inside notebooks (canonical copies live in ml_models/)
+backend/notebooks/**/*.pkl
+backend/notebooks/data/
+
 # Firebase CLI
 .firebase/
 firebase-debug.log
