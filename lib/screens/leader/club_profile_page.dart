@@ -41,45 +41,39 @@ class _ClubProfilePageState extends State<ClubProfilePage> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFE8F4FD),
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            centerTitle: true,
-            iconTheme: const IconThemeData(color: Color(0xFF1E3A8A)),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    clubData['name'] ?? 'Club Profile',
-                    style: const TextStyle(color: Color(0xFF1E3A8A), fontWeight: FontWeight.bold),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              // زر التعديل للأدمن (تعديل مباشر)
-              if (widget.userRole == "admin")
-                IconButton(
-                  icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF3674B5), size: 28),
-                  onPressed: () => _showAdminEditDialog(context, clubData),
-                ),
-              // زر طلب التعديل لليدر
-              if (widget.userRole == "leader")
-                IconButton(
-                  icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF3674B5), size: 24),
-                  onPressed: () => _showLeaderEditRequestDialog(context, clubData),
-                ),
-              if (widget.userRole == "leader")
-                IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
-                  onPressed: _handleLogout,
-                ),
-            ],
-          ),
           body: SafeArea(
             child: CustomScrollView(
               slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                    child: Row(
+                      children: [
+                        if (Navigator.canPop(context))
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E3A8A), size: 20),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        const Spacer(),
+                        if (widget.userRole == "admin")
+                          IconButton(
+                            icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF3674B5), size: 28),
+                            onPressed: () => _showAdminEditDialog(context, clubData),
+                          ),
+                        if (widget.userRole == "leader")
+                          IconButton(
+                            icon: const Icon(Icons.edit_note_rounded, color: Color(0xFF3674B5), size: 24),
+                            onPressed: () => _showLeaderEditRequestDialog(context, clubData),
+                          ),
+                        if (widget.userRole == "leader")
+                          IconButton(
+                            icon: const Icon(Icons.logout, color: Colors.redAccent, size: 20),
+                            onPressed: _handleLogout,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
                 SliverToBoxAdapter(child: _buildEnhancedHeader(clubData)),
                 SliverToBoxAdapter(
                   child: Padding(
