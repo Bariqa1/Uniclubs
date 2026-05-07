@@ -16,9 +16,16 @@ class FirestoreService {
     return snapshot.docs.map((doc) => doc.id).toSet();
   }
 
+  Future<Map<String, String>> _getClubNameMap() async {
+    final snapshot = await _firestore.collection('clubs').get();
+    return {for (final doc in snapshot.docs) doc.id: (doc.data()['name'] as String? ?? '')};
+  }
+
   Future<List<Map<String, dynamic>>> getUpcomingEvents({int limit = 20}) async {
     try {
-      final activeClubIds = await _getActiveClubIds();
+      final results = await Future.wait([_getActiveClubIds(), _getClubNameMap()]);
+      final activeClubIds = results[0] as Set<String>;
+      final clubNames = results[1] as Map<String, String>;
 
       QuerySnapshot snapshot = await _firestore
           .collection('events')
@@ -31,6 +38,7 @@ class FirestoreService {
       return snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
+        data['clubName'] ??= clubNames[data['clubId']] ?? '';
         return data;
       }).where((data) => activeClubIds.contains(data['clubId'])).toList();
     } catch (e) {
@@ -41,7 +49,9 @@ class FirestoreService {
 
   Future<List<Map<String, dynamic>>> getPastEvents({int limit = 20}) async {
     try {
-      final activeClubIds = await _getActiveClubIds();
+      final results = await Future.wait([_getActiveClubIds(), _getClubNameMap()]);
+      final activeClubIds = results[0] as Set<String>;
+      final clubNames = results[1] as Map<String, String>;
 
       QuerySnapshot snapshot = await _firestore
           .collection('events')
@@ -53,6 +63,7 @@ class FirestoreService {
       return snapshot.docs.map((doc) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
+        data['clubName'] ??= clubNames[data['clubId']] ?? '';
         return data;
       }).where((data) =>
           data['status'] != 'cancelled' &&
@@ -213,11 +224,14 @@ class FirestoreService {
         }
       }
 
+      final clubNames = await _getClubNameMap();
+
       List<Map<String, dynamic>> results = [];
       for (final entry in latestByEvent.entries) {
         final regData = entry.value;
         final eventData = await getEvent(entry.key);
         if (eventData != null) {
+          eventData['clubName'] ??= clubNames[eventData['clubId']] ?? '';
           results.add({
             ...eventData,
             'registrationId': regData['docId'],

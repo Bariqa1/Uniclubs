@@ -533,6 +533,24 @@ class _EventsDiscoveryScreenState extends State<EventsDiscoveryScreen>
                   ),
                 ),
                 const SizedBox(height: 12),
+                if (event.clubName != null && event.clubName!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.groups_rounded, size: 15, color: Color(0xFF578FCA)),
+                        const SizedBox(width: 6),
+                        Text(
+                          event.clubName!,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF3674B5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 Row(
                   children: [
                     const Icon(Icons.calendar_today, size: 16, color: Color(0xFF578FCA)),

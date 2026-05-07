@@ -505,7 +505,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           _buildActionTile(
             icon: Icons.event_note,
-            title: 'My Registrations & Feedback',
+            title: 'My Events & Feedback',
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MyRegistrationsScreen()),

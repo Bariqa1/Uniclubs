@@ -387,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 220,
+          height: 260,
           child: _isLoadingRecommendations
               ? const Center(
             child: CircularProgressIndicator(color: Color(0xFF3674B5)),
@@ -498,7 +498,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
+                  if (event.clubName != null && event.clubName!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.groups_rounded, size: 12, color: Color(0xFF578FCA)),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              event.clubName!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF578FCA),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -514,7 +536,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       const Icon(Icons.calendar_today, size: 12, color: Color(0xFF578FCA)),
@@ -524,7 +546,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           '${event.formattedDate} • ${event.formattedTime}',
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF578FCA), // Safe color fallback
+                            color: Color(0xFF578FCA),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -712,29 +734,49 @@ class _HomeScreenState extends State<HomeScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
+                  if (event.clubName != null && event.clubName!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 3),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.groups_rounded, size: 12, color: Color(0xFF578FCA)),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              event.clubName!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF578FCA),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Row(
                     children: [
                       const Icon(Icons.calendar_today, size: 12, color: Color(0xFF578FCA)),
                       const SizedBox(width: 4),
                       Text(
                         event.formattedDate,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF578FCA), // Safe color fallback
-                        ),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF578FCA)),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Row(
                     children: [
                       const Icon(Icons.location_on, size: 12, color: Color(0xFF578FCA)),
                       const SizedBox(width: 4),
-                      Text(
-                        event.location,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF578FCA), // Safe color fallback
+                      Expanded(
+                        child: Text(
+                          event.location,
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF578FCA)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],

@@ -14,6 +14,7 @@ class Event {
   final List<String> tags;
   final String status; // upcoming, ongoing, completed, cancelled
   final DateTime? registrationDeadline;
+  final String? clubName;
 
   Event({
     required this.id,
@@ -29,6 +30,7 @@ class Event {
     required this.tags,
     required this.status,
     this.registrationDeadline,
+    this.clubName,
   });
 
   /// Create Event from Firestore document
@@ -47,6 +49,7 @@ class Event {
       tags: List<String>.from(data['tags'] ?? []),
       status: data['status'] ?? 'upcoming',
       registrationDeadline: (data['registrationDeadline'] as Timestamp?)?.toDate(),
+      clubName: data['clubName'] as String?,
     );
   }
 
@@ -82,6 +85,7 @@ class Event {
       registrationDeadline: data['registrationDeadline'] != null
           ? parseDate(data['registrationDeadline'])
           : null,
+      clubName: data['clubName'] as String?,
     );
   }
 
