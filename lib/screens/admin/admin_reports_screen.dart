@@ -664,21 +664,23 @@ class _AnalyticsDetailScreenState extends State<AnalyticsDetailScreen> {
       tempEvents.sort((a, b) => b.date.compareTo(a.date));
 
       if (widget.categoryTitle == 'AI Sentiment') {
-        if (validEventIds.isNotEmpty) {
-          final feedbackSnap = await db.collection('feedback').get();
-          for (var doc in feedbackSnap.docs) {
-            final data = doc.data();
-            if (validEventIds.contains(data['eventId'] ?? '')) {
-              String label =
+        // Use all of the club's event IDs (no date restriction) so old feedback
+        // is included. eventsSnap already holds every event for the selected club.
+        final sentimentEventIds = eventsSnap.docs.map((d) => d.id).toSet();
+
+        final feedbackSnap = await db.collection('feedback').get();
+        for (var doc in feedbackSnap.docs) {
+          final data = doc.data();
+          final eventId = data['eventId'] ?? '';
+          if (filterByClub && !sentimentEventIds.contains(eventId)) continue;
+          final label =
               (data['sentimentLabel'] ?? 'neutral').toString().toLowerCase();
-              if (label.contains('positive')) {
-                _pos++;
-              } else if (label.contains('negative')) {
-                _neg++;
-              } else {
-                _neu++;
-              }
-            }
+          if (label.contains('positive')) {
+            _pos++;
+          } else if (label.contains('negative')) {
+            _neg++;
+          } else {
+            _neu++;
           }
         }
       }

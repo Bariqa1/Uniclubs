@@ -59,6 +59,7 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
           _buildSummaryStats(),
           _buildCategoryFilter(),
           _buildSearchField(),
+          _buildLegend(),
           const SizedBox(height: 10),
           Expanded(
             child: TabBarView(
@@ -147,6 +148,52 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
       ],
     );
   }
+
+  // ─────────────────────────────────────────
+  // Metrics Legend
+  // ─────────────────────────────────────────
+  Widget _buildLegend() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4F8FB),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFDEECF8)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _legendItem('High Success', '80%+ showed up', Colors.green),
+            _legendDivider(),
+            _legendItem('Good', '50–80% showed up', Colors.orange),
+            _legendDivider(),
+            _legendItem('Low Attendance', 'Under 50% showed up', Colors.red),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _legendItem(String label, String desc, Color color) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label,
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: color)),
+        const SizedBox(height: 2),
+        Text(desc,
+            style: const TextStyle(fontSize: 10, color: Color(0xFF90A4AE))),
+      ],
+    );
+  }
+
+  Widget _legendDivider() =>
+      Container(width: 1, height: 28, color: const Color(0xFFDEECF8));
 
   // ─────────────────────────────────────────
   // Category Filter
@@ -326,11 +373,13 @@ class _AdminAttendanceScreenState extends State<AdminAttendanceScreen>
       stream: FirebaseFirestore.instance
           .collection('registrations')
           .where('eventId', isEqualTo: eventId)
-          .where('status', isEqualTo: 'attended')
           .snapshots(),
       builder: (context, snap) {
-        final actual = snap.hasData ? snap.data!.docs.length : 0;
-        final registered = (data['currentRegistrations'] ?? 0).toInt();
+        final allDocs = snap.hasData ? snap.data!.docs : <QueryDocumentSnapshot>[];
+        final registered = allDocs.length;
+        final actual = allDocs
+            .where((d) => (d.data() as Map<String, dynamic>)['status'] == 'attended')
+            .length;
         final predicted = (data['predictedAttendance'] ?? 0).toInt();
         final rate = registered > 0 ? (actual / registered) : 0.0;
 
