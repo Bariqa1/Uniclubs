@@ -1,6 +1,9 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import google.generativeai as genai
@@ -14,6 +17,7 @@ from app.routes.sentiment_routes import router as sentiment_router
 
 load_dotenv()
 attendance_predictor = AttendancePredictor()
+limiter = Limiter(key_func=get_remote_address)
 
 
 if not firebase_admin._apps:
@@ -35,12 +39,22 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="UniClubs API", version="1.0.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+ALLOWED_ORIGINS = [
+    "https://uniclubs-f926d.web.app",
+    "https://uniclubs-f926d.firebaseapp.com",
+    "http://localhost",
+    "http://localhost:8080",
+    "http://10.0.2.2",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 from app.routes import recommendations
@@ -59,7 +73,8 @@ def root():
     return {"status": "UniClubs API is running"}
 
 @app.post("/analyze-sentiment")
-async def analyze_sentiment(data: FeedbackAnalysis):
+@limiter.limit("10/minute")
+async def analyze_sentiment(request: Request, data: FeedbackAnalysis):
     try:
         prompt = f"""
         Analyze the sentiment of this student feedback about a university event.
@@ -84,7 +99,8 @@ async def analyze_sentiment(data: FeedbackAnalysis):
         return {"status": "error", "message": str(e)}
 
 @app.post("/chat")
-def chat(data: Message):
+@limiter.limit("20/minute")
+async def chat(request: Request, data: Message):
     try:
         history = get_history(data.user_id)
         prompt = f"""

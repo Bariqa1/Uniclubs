@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import 'student/student_dashboard.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -244,7 +245,31 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                     ),
                   ),
 
-                  const SizedBox(height: 80),
+                  const SizedBox(height: 16),
+
+                  // Browse as guest
+                  FadeTransition(
+                    opacity: _fadeAnimation!,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(builder: (_) => const StudentDashboard()),
+                        );
+                      },
+                      child: const Text(
+                        'Browse as Guest',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 40),
 
                   // Bottom branding
                   FadeTransition(

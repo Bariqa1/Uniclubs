@@ -42,7 +42,31 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
 
   Future<void> _handleJoin() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Login Required', style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
+          content: const Text('You need an account to join clubs.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Color(0xFF578FCA))),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/login');
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3674B5), foregroundColor: Colors.white),
+              child: const Text('Log In'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
 
     setState(() => _isJoining = true);
 

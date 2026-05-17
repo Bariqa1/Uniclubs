@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
 import '../../services/firestore_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/api_service.dart';
@@ -24,73 +25,68 @@ class StudentDashboard extends StatefulWidget {
 
 class _StudentDashboardState extends State<StudentDashboard> {
   int _currentIndex = 0;
-
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const EventsDiscoveryScreen(),
-    const ClubsDiscoveryScreen(),
-    const ProfileScreen(),
-  ];
+  final String _guestSessionId = const Uuid().v4();
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF578FCA).withValues(alpha: 0.1),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(
-                  icon: Icons.home_rounded,
-                  label: 'Home',
-                  index: 0,
-                ),
-                _buildNavItem(
-                  icon: Icons.event_rounded,
-                  label: 'Events',
-                  index: 1,
-                ),
-                _buildNavItem(
-                  icon: Icons.groups_rounded,
-                  label: 'Clubs',
-                  index: 2,
-                ),
-                _buildNavItem(
-                  icon: Icons.person_rounded,
-                  label: 'Profile',
-                  index: 3,
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        final isGuest = snapshot.data == null;
+        final screens = [
+          const HomeScreen(),
+          const EventsDiscoveryScreen(),
+          const ClubsDiscoveryScreen(),
+          if (isGuest) const _GuestLoginTab() else const ProfileScreen(),
+        ];
+
+        return Scaffold(
+          body: screens[_currentIndex],
+          bottomNavigationBar: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF578FCA).withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-      floatingActionButton: _AiChatFab(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AiAssistantScreen(
-              currentUser: ChatUser(
-                id: FirebaseAuth.instance.currentUser!.uid,
-                firstName: FirebaseAuth.instance.currentUser!.displayName ?? 'User',
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNavItem(icon: Icons.home_rounded, label: 'Home', index: 0),
+                    _buildNavItem(icon: Icons.event_rounded, label: 'Events', index: 1),
+                    _buildNavItem(icon: Icons.groups_rounded, label: 'Clubs', index: 2),
+                    _buildNavItem(
+                      icon: isGuest ? Icons.login_rounded : Icons.person_rounded,
+                      label: isGuest ? 'Login' : 'Profile',
+                      index: 3,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+          floatingActionButton: _AiChatFab(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AiAssistantScreen(
+                  currentUser: ChatUser(
+                    id: FirebaseAuth.instance.currentUser?.uid ?? _guestSessionId,
+                    firstName: FirebaseAuth.instance.currentUser?.displayName ?? 'Guest',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -294,6 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(width: 16),
+          if (FirebaseAuth.instance.currentUser != null)
           StreamBuilder<int>(
             stream: NotificationService().unreadCountStream(),
             builder: (context, snapshot) {
@@ -563,7 +560,33 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _requireLogin(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Login Required', style: TextStyle(color: Color(0xFF3674B5), fontWeight: FontWeight.bold)),
+        content: const Text('You need an account to access this feature.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF578FCA))),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushNamed(context, '/login');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3674B5), foregroundColor: Colors.white),
+            child: const Text('Log In'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickActions() {
+    final isGuest = FirebaseAuth.instance.currentUser == null;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
@@ -573,10 +596,9 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.groups_rounded,
               label: 'My Clubs',
               color: const Color(0xFF3674B5),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MyClubsScreen()),
-              ),
+              onTap: isGuest
+                  ? () => _requireLogin(context)
+                  : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyClubsScreen())),
             ),
           ),
           const SizedBox(width: 16),
@@ -585,10 +607,9 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icons.event_note,
               label: 'My Events',
               color: const Color(0xFF578FCA),
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MyRegistrationsScreen()),
-              ),
+              onTap: isGuest
+                  ? () => _requireLogin(context)
+                  : () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyRegistrationsScreen())),
             ),
           ),
         ],
@@ -1038,6 +1059,97 @@ class _HomeScreenState extends State<HomeScreen> {
       default:
         return '📌';
     }
+  }
+}
+
+// ── Guest login tab ───────────────────────────────────────────────────────────
+class _GuestLoginTab extends StatelessWidget {
+  const _GuestLoginTab();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFE8F4FD), Color(0xFFF0F9FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF3674B5), Color(0xFF578FCA)],
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF3674B5).withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.school_rounded, color: Colors.white, size: 52),
+                ),
+                const SizedBox(height: 28),
+                const Text(
+                  'Join UniClubs',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF3674B5),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Log in to register for events, join clubs, and get personalized recommendations.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15, color: Color(0xFF578FCA), height: 1.5),
+                ),
+                const SizedBox(height: 36),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pushNamed(context, '/login'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3674B5),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: const Text('Log In', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pushNamed(context, '/register'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF3674B5),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: Color(0xFF3674B5)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('Create Account', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
