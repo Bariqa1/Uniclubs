@@ -22,6 +22,8 @@ class NotificationService {
   final ValueNotifier<RemoteMessage?> foregroundMessage = ValueNotifier(null);
 
   Future<void> initialize() async {
+    if (kIsWeb) return;
+
     // Register background handler
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 

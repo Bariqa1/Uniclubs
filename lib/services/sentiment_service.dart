@@ -6,7 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/constants.dart';
 
 class SentimentService {
-  static const String _baseUrl = AppConstants.apiBaseUrl;
+  static String get _baseUrl => AppConstants.apiBaseUrl;
 
   Future<void> analyzeFeedback(String feedbackId, String text) async {
     try {

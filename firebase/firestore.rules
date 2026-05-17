@@ -234,7 +234,7 @@ service cloud.firestore {
     // ═══════════════════════════════════════
     
     match /test/{document=**} {
-      allow read, write: if true; // ⚠️ Remove in production
+      allow read, write: if false;
     }
   }
 }

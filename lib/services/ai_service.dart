@@ -5,7 +5,7 @@ import 'package:dash_chat_2/dash_chat_2.dart';
 import '../utils/constants.dart';
 
 class AiService {
-  static const String baseUrl = AppConstants.apiBaseUrl;
+  static String get baseUrl => AppConstants.apiBaseUrl;
 
   static Future<String> sendMessage(String message, String userId) async {
     try {
