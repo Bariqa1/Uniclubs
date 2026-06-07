@@ -162,6 +162,7 @@ def _call_model_batched(user_id: str, user_cv: np.ndarray, candidates: list[dict
 
 
 def get_recommendations(user_id: str, num: int = 10) -> list[dict]:
+    print(f"🧠 AI: Calculating TFRS embedding for user {user_id}...")
     """Algorithm 1 — Hybrid Event Recommendation (CLAUDE.md), Steps 0-7."""
 
     # Step 0: Check cache

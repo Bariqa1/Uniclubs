@@ -64,45 +64,24 @@ class Message(BaseModel):
     message: str
     user_id: str
 
-class FeedbackAnalysis(BaseModel):
-    feedback_id: str
-    text: str
-
 @app.get("/")
 def root():
     return {"status": "UniClubs API is running"}
-
-@app.post("/analyze-sentiment")
-@limiter.limit("10/minute")
-async def analyze_sentiment(request: Request, data: FeedbackAnalysis):
-    try:
-        prompt = f"""
-        Analyze the sentiment of this student feedback about a university event.
-        Classify it as 'Positive', 'Negative', or 'Neutral'.
-        Return the result as JSON with keys: 'label' and 'score' (score between 0 and 1).
-        Feedback: "{data.text}"
-        """
-
-        response = model.generate_content(prompt)
-
-        result_text = response.text.replace("```json", "").replace("```", "").strip()
-        result_data = json.loads(result_text)
-
-        doc_ref = db.collection('feedback').document(data.feedback_id)
-        doc_ref.update({
-            'sentimentLabel': result_data.get('label', 'Neutral'),
-            'sentimentScore': result_data.get('score', 0.5)
-        })
-
-        return {"status": "success", "analysis": result_data}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
 
 @app.post("/chat")
 @limiter.limit("20/minute")
 async def chat(request: Request, data: Message):
     try:
-        history = get_history(data.user_id)
+        user_doc = db.collection('users').document(data.user_id).get()
+        allow_analytics = True
+
+        if user_doc.exists:
+            user_dict = user_doc.to_dict()
+            opt_out = user_dict.get('sentimentOptOut', False)
+            allow_analytics = not opt_out
+
+        history = get_history(data.user_id) if allow_analytics else "No history stored due to privacy settings."
+
         prompt = f"""
         You are UniClubs Assistant.
         Help student with: finding clubs, event registration, app navigation, university activities.
@@ -113,8 +92,9 @@ async def chat(request: Request, data: Message):
         response = model.generate_content(prompt)
         ai_reply = response.text or "No response"
 
-        save_message(data.user_id, "user", data.message)
-        save_message(data.user_id, "ai", ai_reply)
+        if allow_analytics:
+            save_message(data.user_id, "user", data.message)
+            save_message(data.user_id, "ai", ai_reply)
 
         return {"response": ai_reply}
     except Exception as e:
@@ -122,6 +102,16 @@ async def chat(request: Request, data: Message):
 
 @app.get("/messages/{user_id}")
 def get_messages(user_id: str):
+    user_doc = db.collection('users').document(user_id).get()
+    allow_analytics = True
+
+    if user_doc.exists:
+        opt_out = user_doc.to_dict().get('sentimentOptOut', False)
+        allow_analytics = not opt_out
+
+    if not allow_analytics:
+        return {"history": []}
+
     history = get_history(user_id)
     return {"history": history}
 
