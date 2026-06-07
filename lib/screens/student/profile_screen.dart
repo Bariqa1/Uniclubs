@@ -590,7 +590,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
           stream: FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
           builder: (context, snapshot) {
             final data = snapshot.data?.data() as Map<String, dynamic>?;
-            final optOut = data?['sentimentOptOut'] == true;
+            final sentimentOptOut = data?['sentimentOptOut'] == true;
+            final recommendationsOptOut = data?['recommendationsOptOut'] == true;
+            final chatbotOptOut = data?['chatbotOptOut'] == true;
+
+            Widget buildToggle(String title, String subtitle, bool optOut, String field) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F4FD),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
+                          const SizedBox(height: 4),
+                          Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF578FCA))),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Switch(
+                      value: !optOut,
+                      activeThumbColor: const Color(0xFF3674B5),
+                      onChanged: (val) {
+                        FirebaseFirestore.instance.collection('users').doc(uid).update({field: !val});
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }
+
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -613,47 +649,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8F4FD),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('AI Sentiment Analysis',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E3A8A))),
-                            SizedBox(height: 4),
-                            Text(
-                              'Allow UniClubs to analyze your feedback using AI to improve event quality.',
-                              style: TextStyle(fontSize: 12, color: Color(0xFF578FCA)),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Switch(
-                        value: !optOut,
-                        activeThumbColor: const Color(0xFF3674B5),
-                        onChanged: (val) {
-                          FirebaseFirestore.instance.collection('users').doc(uid).update({
-                            'sentimentOptOut': !val,
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'When disabled, your feedback will not be processed by AI and will be marked as neutral.',
-                  style: TextStyle(fontSize: 12, color: Color(0xFF90A4AE)),
-                ),
-                const SizedBox(height: 16),
+                buildToggle('AI Recommendations', 'Allow UniClubs to show personalized event recommendations.', recommendationsOptOut, 'recommendationsOptOut'),
+                buildToggle('AI Sentiment Analysis', 'Allow UniClubs to analyze your feedback using AI.', sentimentOptOut, 'sentimentOptOut'),
+                buildToggle('AI Chatbot History', 'Allow the chatbot to store and use your conversation history.', chatbotOptOut, 'chatbotOptOut'),
+                const SizedBox(height: 4),
               ],
             );
           },

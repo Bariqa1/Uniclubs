@@ -27,7 +27,10 @@ async def analyze_sentiment(request: FeedbackRequest):
         allow_analytics = True
 
         if user_doc.exists:
-            allow_analytics = user_doc.to_dict().get('allow_analytics', True)
+            # if sentimentOptOut = True, means user does NOT want analytics -> so allow_analytics = False
+            # Second argument: default value, if sentimentOptOut field doesn't exist return False, 
+            # so by default, the user is not opted out
+            allow_analytics = not user_doc.to_dict().get('sentimentOptOut', False)
 
         doc_ref = db.collection('feedback').document(request.feedback_id)
 

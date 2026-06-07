@@ -11,16 +11,16 @@ def recommendations(user_id: str, limit: int = 10):
         user_doc = db.collection('users').document(user_id).get()
 
         # الافتراضي هو السماح بالتحليلات
-        allow_analytics = True
+        allow_recommendations = True
 
         if user_doc.exists:
             user_data = user_doc.to_dict()
-            # نجلب قيمة sentimentOptOut (إذا لم يجدها يعتبرها False)
-            opt_out = user_data.get('sentimentOptOut', False)
+            # نجلب قيمة recommendationsOptOut (إذا لم يجدها يعتبرها False)
+            opt_out = user_data.get('recommendationsOptOut', False)
             # العلاقة عكسية: إذا عمل OptOut (True) إذن السماح يكون (False)
-            allow_analytics = not opt_out
+            allow_recommendations = not opt_out
 
-        if allow_analytics:
+        if allow_recommendations:
             print(f"✅ DEBUG: Privacy OFF (OptOut=False) for {user_id}. Using AI (TFRS).")
             events = get_recommendations(user_id, num=limit)
             is_personalized = True

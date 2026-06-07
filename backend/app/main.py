@@ -73,14 +73,14 @@ def root():
 async def chat(request: Request, data: Message):
     try:
         user_doc = db.collection('users').document(data.user_id).get()
-        allow_analytics = True
+        allow_chatbot = True
 
         if user_doc.exists:
             user_dict = user_doc.to_dict()
-            opt_out = user_dict.get('sentimentOptOut', False)
-            allow_analytics = not opt_out
+            opt_out = user_dict.get('chatbotOptOut', False)
+            allow_chatbot = not opt_out
 
-        history = get_history(data.user_id) if allow_analytics else "No history stored due to privacy settings."
+        history = get_history(data.user_id) if allow_chatbot else "No history stored due to privacy settings."
 
         prompt = f"""
         You are UniClubs Assistant.
@@ -92,7 +92,7 @@ async def chat(request: Request, data: Message):
         response = model.generate_content(prompt)
         ai_reply = response.text or "No response"
 
-        if allow_analytics:
+        if allow_chatbot:
             save_message(data.user_id, "user", data.message)
             save_message(data.user_id, "ai", ai_reply)
 
@@ -103,13 +103,13 @@ async def chat(request: Request, data: Message):
 @app.get("/messages/{user_id}")
 def get_messages(user_id: str):
     user_doc = db.collection('users').document(user_id).get()
-    allow_analytics = True
+    allow_chatbot = True
 
     if user_doc.exists:
-        opt_out = user_doc.to_dict().get('sentimentOptOut', False)
-        allow_analytics = not opt_out
+        opt_out = user_doc.to_dict().get('chatbotOptOut', False)
+        allow_chatbot = not opt_out
 
-    if not allow_analytics:
+    if not allow_chatbot:
         return {"history": []}
 
     history = get_history(user_id)
