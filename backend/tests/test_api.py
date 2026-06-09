@@ -111,61 +111,77 @@ class TestSentimentAnalysis:
         mock_model.generate_content.return_value = mock_resp
         return mock_model
 
-    def test_positive_feedback_returns_positive_label(self, client):
+    def _mock_db(self):
+        """Returns a mock Firestore db where the user has not opted out."""
         mock_db = MagicMock()
-        mock_db.collection.return_value.document.return_value.update.return_value = None
-        with patch("app.main.model", self._mock_gemini("Positive", 0.92)), \
-             patch("app.main.db", mock_db):
-            data = client.post("/analyze-sentiment",
-                               json={"feedback_id": "f1",
+        mock_user_doc = MagicMock()
+        mock_user_doc.exists = True
+        mock_user_doc.to_dict.return_value = {"sentimentOptOut": False}
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_user_doc
+        return mock_db
+
+    def test_positive_feedback_returns_positive_label(self, client):
+        with patch("app.routes.sentiment_routes.model", self._mock_gemini("Positive", 0.92)), \
+             patch("app.routes.sentiment_routes.get_db", return_value=self._mock_db()):
+            data = client.post("/ai/analyze-sentiment",
+                               json={"feedback_id": "f1", "user_id": "u1",
                                      "text": "Amazing workshop, very well organized!"}).json()
         assert data["status"] == "success"
         assert data["analysis"]["label"] == "Positive"
 
     def test_negative_feedback_returns_negative_label(self, client):
-        mock_db = MagicMock()
-        mock_db.collection.return_value.document.return_value.update.return_value = None
-        with patch("app.main.model", self._mock_gemini("Negative", 0.85)), \
-             patch("app.main.db", mock_db):
-            data = client.post("/analyze-sentiment",
-                               json={"feedback_id": "f2",
+        with patch("app.routes.sentiment_routes.model", self._mock_gemini("Negative", 0.85)), \
+             patch("app.routes.sentiment_routes.get_db", return_value=self._mock_db()):
+            data = client.post("/ai/analyze-sentiment",
+                               json={"feedback_id": "f2", "user_id": "u1",
                                      "text": "Poorly organized, waste of time."}).json()
         assert data["analysis"]["label"] == "Negative"
 
     def test_score_in_valid_range(self, client):
-        mock_db = MagicMock()
-        mock_db.collection.return_value.document.return_value.update.return_value = None
-        with patch("app.main.model", self._mock_gemini("Neutral", 0.5)), \
-             patch("app.main.db", mock_db):
-            data = client.post("/analyze-sentiment",
-                               json={"feedback_id": "f3", "text": "It was okay."}).json()
+        with patch("app.routes.sentiment_routes.model", self._mock_gemini("Neutral", 0.5)), \
+             patch("app.routes.sentiment_routes.get_db", return_value=self._mock_db()):
+            data = client.post("/ai/analyze-sentiment",
+                               json={"feedback_id": "f3", "user_id": "u1",
+                                     "text": "It was okay."}).json()
         score = data["analysis"]["score"]
         assert 0.0 <= score <= 1.0
 
     def test_response_contains_label_and_score(self, client):
-        mock_db = MagicMock()
-        mock_db.collection.return_value.document.return_value.update.return_value = None
-        with patch("app.main.model", self._mock_gemini("Positive", 0.88)), \
-             patch("app.main.db", mock_db):
-            data = client.post("/analyze-sentiment",
-                               json={"feedback_id": "f4", "text": "Great event!"}).json()
+        with patch("app.routes.sentiment_routes.model", self._mock_gemini("Positive", 0.88)), \
+             patch("app.routes.sentiment_routes.get_db", return_value=self._mock_db()):
+            data = client.post("/ai/analyze-sentiment",
+                               json={"feedback_id": "f4", "user_id": "u1",
+                                     "text": "Great event!"}).json()
         assert "label" in data["analysis"]
         assert "score" in data["analysis"]
 
     def test_empty_text_via_ai_route_returns_error(self, client):
+        # Empty text is rejected before Firestore is called — no db mock needed
         response = client.post("/ai/analyze-sentiment",
-                               json={"feedback_id": "f5", "text": ""})
+                               json={"feedback_id": "f5", "user_id": "u1", "text": ""})
         data = response.json()
         assert data["status"] == "error"
 
     def test_firestore_updated_on_success(self, client):
+        # Set up db so the feedback doc_ref's update() can be verified
         mock_db = MagicMock()
+        mock_user_doc = MagicMock()
+        mock_user_doc.exists = True
+        mock_user_doc.to_dict.return_value = {"sentimentOptOut": False}
         doc_ref = MagicMock()
-        mock_db.collection.return_value.document.return_value = doc_ref
-        with patch("app.main.model", self._mock_gemini("Positive", 0.9)), \
-             patch("app.main.db", mock_db):
-            client.post("/analyze-sentiment",
-                        json={"feedback_id": "f6", "text": "Excellent!"})
+        # users collection returns the user doc; feedback collection returns doc_ref
+        def collection_side_effect(name):
+            m = MagicMock()
+            if name == "users":
+                m.document.return_value.get.return_value = mock_user_doc
+            else:
+                m.document.return_value = doc_ref
+            return m
+        mock_db.collection.side_effect = collection_side_effect
+        with patch("app.routes.sentiment_routes.model", self._mock_gemini("Positive", 0.9)), \
+             patch("app.routes.sentiment_routes.get_db", return_value=mock_db):
+            client.post("/ai/analyze-sentiment",
+                        json={"feedback_id": "f6", "user_id": "u1", "text": "Excellent!"})
         doc_ref.update.assert_called_once()
 
 

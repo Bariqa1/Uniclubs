@@ -443,7 +443,14 @@ class TestRecommendationAPI:
         assert data["userId"] == "test_user"
 
     def test_get_recommendations_limit_param(self, client):
-        with patch("app.routes.recommendations.get_recommendations", return_value=[]) as mock_fn:
+        # Mock db so the user has not opted out — otherwise get_recommendations is never called
+        mock_db = MagicMock()
+        mock_user_doc = MagicMock()
+        mock_user_doc.exists = True
+        mock_user_doc.to_dict.return_value = {"recommendationsOptOut": False}
+        mock_db.collection.return_value.document.return_value.get.return_value = mock_user_doc
+        with patch("app.routes.recommendations.get_recommendations", return_value=[]) as mock_fn, \
+             patch("app.routes.recommendations.get_db", return_value=mock_db):
             client.get("/api/recommendations/test_user?limit=5")
         mock_fn.assert_called_once_with("test_user", num=5)
 
