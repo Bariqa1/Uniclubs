@@ -164,15 +164,15 @@ uvicorn app.main:app --reload --port 8000
 
 This project was developed as a University Graduation Project:
 
-- **Bariqa Aljarallah** - [GitHub](https://github.com/Bariqa1)
-- **Asma Fahad** - [GitHub](https://github.com/AsmaFh241)
-- **Jori**
-- **Rudi**
+- **Bariqa** - [GitHub](https://github.com/Bariqa1)
+- **Rudi** - [GitHub](https://github.com/meisru)
+- **Asma** - [GitHub](https://github.com/AsmaFh241)
+- **Gori** - [GitHub](https://github.com/JoJ04)
 
 ---
 
 ## License & Copyright
 
-Copyright (c) 2026 Bariqa Aljarallah & UniClubs Contributors. All Rights Reserved.
+Copyright (c) 2026 UniClubs Contributors. All Rights Reserved.
 
 This repository and its codebase are made available for portfolio, demonstration, and academic review purposes only. No part of this software, source code, or documentation may be reproduced, distributed, modified, sublicensed, or used for commercial purposes without prior explicit written permission from the copyright holders.
