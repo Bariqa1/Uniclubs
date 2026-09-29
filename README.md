@@ -8,7 +8,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![TensorFlow](https://img.shields.io/badge/TensorFlow-Recommenders-FF6F00?style=flat-square&logo=tensorflow&logoColor=white)](https://www.tensorflow.org/recommenders)
 [![Google Gemini](https://img.shields.io/badge/Google_Gemini-API-8E75C2?style=flat-square&logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-All_Rights_Reserved-red.svg?style=flat-square)](LICENSE)
 
 UniClubs is an intelligent, cross-platform mobile and web ecosystem engineered to revolutionize campus life, student club administration, and extracurricular event engagement across universities. By integrating state-of-the-art machine learning models with a mobile-first Flutter interface, UniClubs bridges the gap between students seeking enriching campus activities and club organizers optimizing event turnout.
 
@@ -171,6 +171,8 @@ This project was developed as a University Graduation Project:
 
 ---
 
-## License
+## License & Copyright
 
-This project is open-source software licensed under the [MIT License](LICENSE).
+Copyright (c) 2026 Bariqa Aljarallah & UniClubs Contributors. All Rights Reserved.
+
+This repository and its codebase are made available for portfolio, demonstration, and academic review purposes only. No part of this software, source code, or documentation may be reproduced, distributed, modified, sublicensed, or used for commercial purposes without prior explicit written permission from the copyright holders.
